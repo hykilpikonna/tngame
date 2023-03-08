@@ -2,3 +2,5 @@ telnetlib3
 hyfetch
 rich
 watchdog
+numpy
+numba
