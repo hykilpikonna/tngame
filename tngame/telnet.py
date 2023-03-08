@@ -31,6 +31,18 @@ ASC_CAT = AsciiArt(r"""
 ( | | )
  >   < """, "Azalea")
 
+ASC_TREE = AsciiArt(r"""
+          %%%,%%%%%%%
+       ,'%% \\-*%%%%%%%
+ ;%%%%%*%   _%%%%"
+  ,%%%       \(_.*%%%%.
+  % *%%, ,%%%%*(    '
+%^     ,*%%% )\|,%%*%,_
+     *%    \/ #).-"*%%*
+         _.) ,/ *%,
+          /)#(
+         /   \ """, "b'ger from ascii.co.uk/art/tree")
+
 
 SNOW_DENSITY = 0.05  # Snow particles per pixel on screen
 SNOW_SPEED = 8  # Snow fall speed in pixels per second
