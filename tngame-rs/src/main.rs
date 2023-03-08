@@ -28,3 +28,26 @@ const COLORS_STR: [&str; 3] = [
     "\x1b[38;2;85;205;253m"
 ];
 
+/// Snow particle struct
+struct SnowParticle<'a> {
+    x: f32,
+    y: f32,
+    vx: f32,
+    vy: f32,
+    color: &'a str,
+}
+
+/// AsciiArt is a struct that holds the ascii art and the credit for the art.
+struct AsciiArt {
+    art: String,
+    h: u16,
+    w: u16,
+    credit: String,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+struct Pixel<'a> {
+    color: &'a str,
+    char: char,
+}
+
