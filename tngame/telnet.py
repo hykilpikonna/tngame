@@ -79,7 +79,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         return snow
 
     # Update snow particles
-    def update_snow():
+    def update_snow(dt: float):
         nonlocal snow
         # Erase snow particles
         for particle in snow:
@@ -89,8 +89,8 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         # Update snow particles
         for particle in snow:
             # Update position
-            particle.x += particle.xv
-            particle.y += particle.yv
+            particle.x += particle.xv * dt
+            particle.y += particle.yv * dt
 
             # Wrap around the screen
             if particle.x >= width:
@@ -148,7 +148,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
         clear()
         # Update snow
-        update_snow()
+        update_snow(dt)
         # Move the cat
         print_ascii(ASCII_CAT, x, y)
         # Move the cursor to the bottom
@@ -179,8 +179,8 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     async def listen_update():
         while True:
             await update()
-            # Wait for 0.1s
-            await asyncio.sleep(0.1)
+            # 30 fps
+            await asyncio.sleep(1 / 30)
 
     # Listen input function
     async def listen_input():
