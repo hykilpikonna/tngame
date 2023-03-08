@@ -74,6 +74,42 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             draw_cat()
             await asyncio.sleep(0.1)
 
+    # Listen input function
+    async def listen():
+        while True:
+            inp: str = await reader.read(3)
+            if inp and await on_input(inp):
+                return
+
+    # Handle input function
+    async def on_input(inp: str):
+        nonlocal x, y
+        log.info(repr(inp))
+        # Switch case
+        match inp:
+            case '\x1b[C':  # Right
+                x += 1
+            case '\x1b[D':  # Left
+                x -= 1
+            # case '\x1b[A':  # Up
+            #     y -= 1
+            # case '\x1b[B':  # Down
+            #     y += 1
+            case '\x1b':  # Escape
+                writer.write('\r\nBye!\r\n')
+                writer.close()
+                return True
+            case _:
+                log.info(f'Unknown input: {repr(inp)}')
+
+        # Draw the cat
+        draw_cat()
+        # Flush the output
+        await writer.drain()
+
+    # Run listen and update in parallel
+    await asyncio.gather(listen(), update())
+
 
 def run():
     # Create a new event loop, start the server and wait for it to close
