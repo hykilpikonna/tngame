@@ -50,6 +50,25 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     y: int
     snow: list[SnowParticle]
 
+    # Create snow particles
+    def create_snow(count: int) -> list[SnowParticle]:
+        snow = []
+
+        for _ in range(count):
+            # Generate random x and y position
+            x = random.randint(0, width)
+            y = random.randint(0, height)
+
+            # Generate random x and y velocity
+            xv = random.randint(-1, 1)
+            yv = random.randint(1, 2)
+
+            # Generate random color
+            color = random.choice(COLORS)
+
+            snow.append(SnowParticle(x, y, xv, yv, color))
+
+        return snow
     # Get the size of the terminal
     async def get_size() -> tuple[int, int]:
         # Get the size of the terminal
