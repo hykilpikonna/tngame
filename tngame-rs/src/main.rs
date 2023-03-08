@@ -3,6 +3,7 @@
 use std::io::{stdin, Write};
 use std::{io, mem, thread};
 use std::borrow::ToOwned;
+use std::ops::Deref;
 use std::ptr::null;
 use std::string::ToString;
 use std::time::{Duration, Instant};
@@ -29,15 +30,16 @@ const COLORS_STR: [&str; 3] = [
 ];
 
 /// Snow particle struct
-struct SnowParticle<'a> {
+struct SnowParticle {
     x: f32,
     y: f32,
     vx: f32,
     vy: f32,
-    color: &'a str,
+    color: &'static str,
 }
 
 /// AsciiArt is a struct that holds the ascii art and the credit for the art.
+#[derive(Clone, PartialEq, Eq)]
 struct AsciiArt {
     art: String,
     h: u16,
@@ -61,8 +63,8 @@ impl AsciiArt {
 }
 
 #[derive(Clone, PartialEq, Eq)]
-struct Pixel<'a> {
-    color: &'a str,
+struct Pixel {
+    color: &'static str,
     char: char,
 }
 
@@ -73,7 +75,7 @@ fn snow_rand_velocity() -> (f32, f32) {
     (vx, vy)
 }
 
-fn create_snow(width: u16, height: u16) -> Vec<SnowParticle<'static>> {
+fn create_snow(width: u16, height: u16) -> Vec<SnowParticle> {
     let count: u16 = ((width * height) as f32 * SNOW_DENSITY) as u16;
     let mut snow = Vec::with_capacity(count as usize);
     let mut rng = rand::thread_rng();
@@ -87,24 +89,26 @@ fn create_snow(width: u16, height: u16) -> Vec<SnowParticle<'static>> {
     snow
 }
 
-struct Main {
+struct Consts {
     asc_cat: AsciiArt,
     asc_tree: AsciiArt,
     asc_house: AsciiArt,
+}
 
+struct Main {
     width: u16,
     height: u16,
     x: u16,
 
-    buf: Vec<Vec<Option<Pixel<'static>>>>,
-    last_buf: Vec<Vec<Option<Pixel<'static>>>>,
+    buf: Vec<Vec<Option<Pixel>>>,
+    last_buf: Vec<Vec<Option<Pixel>>>,
 
     last_update: Instant,
 
-    snow: Vec<SnowParticle<'static>>,
+    snow: Vec<SnowParticle>,
 }
 
-impl Main {
+impl Consts {
     fn new() -> Self {
         // Initialize the ascii art
         let asc_cat = AsciiArt::new(
@@ -133,7 +137,16 @@ impl Main {
    | ,--,   ,--, |  ,|
  ,%| '--'._.'--' |,o%o
 .*%|_,%%_| |_%%,_|#%%%*"#, "Modified from hjw from ascii.co.uk/art/house");
+        Self {
+            asc_cat,
+            asc_tree,
+            asc_house,
+        }
+    }
+}
 
+impl Main {
+    fn new(consts: &Consts) -> Self {
         // Get the terminal size
         let (width, height) = termion::terminal_size().unwrap();
 
@@ -142,13 +155,12 @@ impl Main {
         let last_buf = buf.clone();
 
         // Place cat x in the middle of the screen
-        let x = (width - asc_cat.w) / 2;
+        let x = (width - consts.asc_cat.w) / 2;
 
         // Create snow particles
         let snow = create_snow(width, height);
 
         Self {
-            asc_cat, asc_tree, asc_house,
             width, height, x,
             buf, last_buf,
             last_update: Instant::now(),
@@ -184,6 +196,21 @@ impl Main {
             let y = p.y.round() as u16;
             if x < self.width && y < self.height {
                 self.buf[y as usize][x as usize] = Some(Pixel { color: p.color, char: '*' });
+            }
+        }
+    }
+
+    fn print_ascii(&mut self, art: &AsciiArt, x: u16, y: u16, color: &'static str) {
+        // Loop through all lines in the ascii art
+        for (i, line) in art.art.lines().enumerate() {
+            // Loop through all characters in the line
+            for (j, c) in line.chars().enumerate() {
+                // Draw the character in the buffer
+                let x = x + j as u16;
+                let y = y + i as u16;
+                if x < self.width && y < self.height {
+                    self.buf[y as usize][x as usize] = Some(Pixel { color, char: c });
+                }
             }
         }
     }
@@ -255,6 +282,17 @@ impl Main {
         Ok(buf_str)
     }
 
+    fn draw_ascii_frame(&mut self, consts: &Consts) {
+        // Draw the cat
+        self.print_ascii(&consts.asc_cat, self.x, 0, "\x1b[38;2;255;231;151m");
+
+        // Draw the tree
+        self.print_ascii(&consts.asc_tree, 0, 0, "\x1b[38;2;0;255;0m");
+
+        // Draw the house
+        self.print_ascii(&consts.asc_house, 0, 0, "\x1b[38;2;255;0;0m");
+    }
+
     fn start_loop(&mut self) {
         // Clear the screen
         print!("{}", termion::clear::All);
@@ -293,6 +331,7 @@ fn main() {
     pretty_env_logger::init();
 
     // Create the Main object
-    let mut main = Main::new();
+    let consts = Consts::new();
+    let mut main = Main::new(&consts);
     main.start_loop();
 }
