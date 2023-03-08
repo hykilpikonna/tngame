@@ -248,12 +248,11 @@ impl Main {
         mem::swap(&mut self.buf, &mut self.last_buf);
 
         // Reset the color
-        buf_str.push_str(&Fg(termion::color::Reset).to_string());
+        buf_str.push_str(RESET);
 
         // Flush the buffer
-        print!("{}", Goto(1, self.height as u16 + 1));
-        print!("{}", termion::cursor::Show);
-        io::stdout().flush()?;
+        buf_str.push_str(&Goto(1, self.height as u16 + 1).to_string());
+        buf_str.push_str(&*termion::cursor::Show.to_string());
 
         Ok(buf_str)
     }
@@ -279,7 +278,7 @@ impl Main {
             let txt = self.draw_buf().unwrap();
             let end = Instant::now();
             let draw_time = (end - start).as_secs_f32();
-            print!("Draw time: {:.2}ms", draw_time * 1000.0);
+            print!("\rDraw time: {:.2}ms", draw_time * 1000.0);
             print!("{}", txt);
 
 
@@ -294,8 +293,6 @@ impl Main {
 
 fn main() {
     pretty_env_logger::init();
-
-    println!("Hello, world!");
 
     // Create the Main object
     let mut main = Main::new();
