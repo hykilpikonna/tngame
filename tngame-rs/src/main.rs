@@ -1,16 +1,16 @@
 #![feature(let_chains)]
 
-use std::io::{stdin, Write};
-use std::{io, mem, thread};
-use std::borrow::ToOwned;
-use std::ops::Deref;
-use std::ptr::null;
+use std::{mem, thread};
 use std::string::ToString;
 use std::time::{Duration, Instant};
-use rand::Rng;
+
 use anyhow::Result;
+use rand::Rng;
 use termion::color::{Fg, Rgb};
 use termion::cursor::Goto;
+use crate::cowsay::gen_bubble_ascii;
+
+mod cowsay;
 
 const RESET: &str = "\x1b[0m";
 
@@ -40,7 +40,7 @@ struct SnowParticle {
 
 /// AsciiArt is a struct that holds the ascii art and the credit for the art.
 #[derive(Clone, PartialEq, Eq)]
-struct AsciiArt {
+pub struct AsciiArt {
     art: String,
     h: u16,
     w: u16,
@@ -96,8 +96,8 @@ struct Consts {
 }
 
 struct Mutes {
-    width: u16,
-    height: u16,
+    w: u16,
+    h: u16,
     x: u16,
 
     buf: Vec<Vec<Option<Pixel>>>,
@@ -166,7 +166,8 @@ impl Mutes {
         let snow = create_snow(width, height);
 
         Self {
-            width, height, x,
+            w: width,
+            h: height, x,
             buf, last_buf,
             last_update: Instant::now(),
             snow,
@@ -183,13 +184,13 @@ impl Mutes {
 
             // If the snow particle is out of x bounds, wrap it around
             if p.x < 0.0 {
-                p.x += self.width as f32;
-            } else if p.x > self.width as f32 {
-                p.x -= self.width as f32;
+                p.x += self.w as f32;
+            } else if p.x > self.w as f32 {
+                p.x -= self.w as f32;
             }
 
             // If the snow particle is out of y bounds, reset it
-            if p.y > self.height as f32 {
+            if p.y > self.h as f32 {
                 let (vx, vy) = snow_rand_velocity();
                 p.vx = vx;
                 p.vy = vy;
@@ -199,7 +200,7 @@ impl Mutes {
             // Draw the snow particle in the buffer
             let x = p.x.round() as u16;
             let y = p.y.round() as u16;
-            if x < self.width && y < self.height {
+            if x < self.w && y < self.h {
                 self.buf[y as usize][x as usize] = Some(Pixel { color: p.color, char: '*' });
             }
         }
@@ -213,7 +214,7 @@ impl Mutes {
                 // Draw the character in the buffer
                 let x = x + j as u16;
                 let y = y + i as u16;
-                if x < self.width && y < self.height {
+                if x < self.w && y < self.h {
                     self.buf[y as usize][x as usize] = Some(Pixel { color, char: c });
                 }
             }
@@ -223,7 +224,7 @@ impl Mutes {
     /// Draw the buffer to the screen, diffing it with the last buffer, and only drawing the changed pixels
     fn draw_buf(&mut self) -> Result<String> {
         // Create a buffer string
-        let mut buf_str = String::with_capacity((self.width * self.height) as usize);
+        let mut buf_str = String::with_capacity((self.w * self.h) as usize);
 
         // Keep the last color
         let mut last_color: &str = "";
@@ -238,8 +239,8 @@ impl Mutes {
             };
 
         // Loop through all pixels in the buffer
-        for y in 0..self.height {
-            for x in 0..self.width {
+        for y in 0..self.h {
+            for x in 0..self.w {
                 // Get the pixel
                 let p = &self.buf[y as usize][x as usize];
 
@@ -282,73 +283,67 @@ impl Mutes {
         buf_str.push_str(RESET);
 
         // Flush the buffer
-        buf_str.push_str(&Goto(1, self.height as u16 + 1).to_string());
+        buf_str.push_str(&Goto(1, self.h as u16 + 1).to_string());
 
         Ok(buf_str)
     }
 }
 
-impl Main {
-    fn new() -> Self {
-        // Create the mutes object
-        let consts = Consts::new();
-        let mut mutes = Mutes::new(&consts);
+fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
+    // Draw the cat
+    mt.print_ascii(&cn.asc_cat, mt.x, mt.h - cn.asc_cat.h, "\x1b[38;2;255;231;151m");
 
-        Self {
-            cn: consts,
-            mt: mutes,
-        }
-    }
+    // Draw the tree
+    mt.print_ascii(&cn.asc_tree, (mt.w - 2 * cn.asc_tree.w) / 4, mt.h - cn.asc_tree.h,
+                   "\x1b[38;2;204;255;88m");
+    mt.print_ascii(&cn.asc_tree, (mt.w + 2 * cn.asc_tree.w) / 2, mt.h - cn.asc_tree.h,
+                   "\x1b[38;2;204;255;88m");
 
-    fn draw_ascii_frame(&mut self) {
-        // Draw the cat
-        self.mt.print_ascii(&self.cn.asc_cat, self.mt.x, 0, "\x1b[38;2;255;231;151m");
+    // Draw the house
+    mt.print_ascii(&cn.asc_house, (mt.w + cn.asc_house.w) / 2, mt.h - cn.asc_house.h,
+                   "\x1b[38;2;251;194;110m");
+}
 
-        // Draw the tree
-        self.mt.print_ascii(&self.cn.asc_tree, 0, 0, "\x1b[38;2;0;255;0m");
+fn start_loop(mt: &mut Mutes, cn: &Consts) {
+    // Clear the screen
+    print!("{}", termion::clear::All);
+    print!("{}", termion::cursor::Hide);
 
-        // Draw the house
-        self.mt.print_ascii(&self.cn.asc_house, 0, 0, "\x1b[38;2;255;0;0m");
-    }
+    // Start the loop
+    loop {
+        // Get the current time
+        let now = Instant::now();
 
-    fn start_loop(&mut self) {
-        // Clear the screen
-        print!("{}", termion::clear::All);
-        print!("{}", termion::cursor::Hide);
+        // Calculate the delta time
+        let dt = (now - mt.last_update).as_secs_f32();
+        mt.last_update = now;
 
-        // Start the loop
-        loop {
-            // Get the current time
-            let now = Instant::now();
+        // Update the snow
+        mt.update_snow(dt);
+        draw_ascii_frame(mt, cn);
 
-            // Calculate the delta time
-            let dt = (now - self.mt.last_update).as_secs_f32();
-            self.mt.last_update = now;
+        // Draw the buffer, time it, and print it
+        let start = Instant::now();
+        let txt = mt.draw_buf().unwrap();
+        let end = Instant::now();
+        let draw_time = (end - start).as_secs_f32();
+        print!("\rDraw time: {:.2}ms", draw_time * 1000.0);
+        print!("{}", txt);
 
-            // Update the snow
-            self.mt.update_snow(dt);
 
-            // Draw the buffer, time it, and print it
-            let start = Instant::now();
-            let txt = self.mt.draw_buf().unwrap();
-            let end = Instant::now();
-            let draw_time = (end - start).as_secs_f32();
-            print!("\rDraw time: {:.2}ms", draw_time * 1000.0);
-            print!("{}", txt);
+        // Set cursor to the bottom of the screen
+        print!("\x1b[9999;9999H");
 
-            // Set cursor to the bottom of the screen
-            print!("\x1b[9999;9999H");
-
-            // Sleep for 1/20th of a second
-            thread::sleep(Duration::from_millis(1000 / 20));
-        }
+        // Sleep for 1/20th of a second
+        thread::sleep(Duration::from_millis(1000 / 20));
     }
 }
 
 fn main() {
     pretty_env_logger::init();
 
-    // Create the Main object
-    let mut main = Main::new();
-    main.start_loop();
+    let cn = Consts::new();
+    let mut mt = Mutes::new(&cn);
+
+    start_loop(&mut mt, &cn);
 }
