@@ -43,6 +43,14 @@ ASC_TREE = AsciiArt(r"""
           /)#(
          /   \ """, "b'ger from ascii.co.uk/art/tree")
 
+ASC_HOUSE = AsciiArt(r"""
+         _ 
+     ,--l l--------,
+    / /^/    /^/  / \
+   /_.--.___.--._/   \
+   | ,--,   ,--, |  ,|
+ ,%| '--'._.'--' |,o%o
+.*%|_,%%_| |_%%,_|#%%%*""", "Modified from hjw from ascii.co.uk/art/house")
 
 SNOW_DENSITY = 0.05  # Snow particles per pixel on screen
 SNOW_SPEED = 8  # Snow fall speed in pixels per second
