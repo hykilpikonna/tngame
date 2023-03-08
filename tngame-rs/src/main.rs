@@ -8,10 +8,6 @@ use anyhow::Result;
 use rand::Rng;
 use termion::color::{Fg, Rgb};
 use termion::cursor::Goto;
-use termion::raw::IntoRawMode;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpListener;
-use tokio::sync::mpsc;
 use crate::cowsay::gen_bubble_ascii;
 
 mod cowsay;
@@ -347,11 +343,11 @@ fn start_loop(mt: &mut Mutes, cn: &Consts) {
         draw_ascii_frame(mt, cn);
 
         // Draw the buffer, time it, and print it
-        let mut txt = mt.draw_buf().unwrap();
+        let txt = mt.draw_buf().unwrap();
         let end = Instant::now();
 
         let draw_time = (end - start).as_secs_f32();
-        txt.push_str(&*format!("\rDraw time: {:.2}ms", draw_time * 1000.0));
+        print!("\rDraw time: {:.2}ms", draw_time * 1000.0);
         print!("{}", txt);
 
         // Sleep for 1/20th of a second
@@ -359,57 +355,11 @@ fn start_loop(mt: &mut Mutes, cn: &Consts) {
     }
 }
 
-// fn main() {
-//     pretty_env_logger::init();
-//
-//     let cn = Consts::new();
-//     let mut mt = Mutes::new(&cn);
-//
-//
-//
-//     start_loop(&mut mt, &cn);
-// }
+fn main() {
+    pretty_env_logger::init();
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    const ADDR: &str = "127.0.0.1:2323";
-    let listener = TcpListener::bind(ADDR).await?;
+    let cn = Consts::new();
+    let mut mt = Mutes::new(&cn);
 
-    println!("Server running on {ADDR}");
-
-    // Spawn a task to handle incoming connections
-    tokio::spawn(async move {
-        while let Ok((mut socket, _addr)) = listener.accept().await {
-            // Spawn a task to handle the socket
-            tokio::spawn(async move {
-                let (mut reader, mut writer) = socket.split();
-
-                // Put the terminal into raw mode to receive escape sequences
-                writer.write_all(b"\x1B[?25l").await.unwrap(); // Hide the cursor
-                writer.write_all(b"\x1B[?1049h").await.unwrap(); // Save cursor position and switch to alternate screen
-                writer.flush().await.unwrap();
-
-                // Send a welcome message to the client
-                writer.write_all(b"Meow~\n").await.unwrap();
-
-                // Read from the client until the connection is closed
-                let mut buf = [0; 3];
-                loop {
-                    // Print escaped characters for debug
-                    let n = reader.read(&mut buf).await.unwrap();
-                    for i in 0..n {
-                        for e in std::ascii::escape_default(buf[i]) {
-                            print!("{}", e as char);
-                        }
-                    }
-
-                    writer.write_all(format!("\nReceived {n} bytes: {}", String::from_utf8_lossy(&buf[..n])).as_ref()).await.unwrap();
-
-                    if n == 0 { break; }
-                }
-            });
-        }
-    });
-
-    Ok(())
+    start_loop(&mut mt, &cn);
 }
