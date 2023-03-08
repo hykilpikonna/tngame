@@ -29,6 +29,13 @@ COLORS = {RGB.from_hex(v) for v in {
 
 async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
+
+    def clear():
+        # Clear the screen
+        writer.write('\x1b[2J')
+        writer.write('\x1b[H')
+
+    clear()
     x, y = 0, height - ASCII_HEIGHT
 
 
