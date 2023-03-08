@@ -66,9 +66,6 @@ COLORS = [RGB.from_hex(v) for v in {
     '#55CDFD'
 }]
 
-print(repr(RGB.from_hex('#FFFFFF')))
-exit(0)
-
 # Snow fall data structure
 @dataclass
 class SnowParticle:
