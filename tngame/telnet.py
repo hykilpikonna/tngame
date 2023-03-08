@@ -88,7 +88,6 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
     # Update snow particles
     def update_snow(dt: float):
-        log.info(f'Updating snow particles: {dt}')
         nonlocal snow
 
         buf = ""
@@ -177,14 +176,13 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     # Handle input function
     async def on_input(inp: str):
         nonlocal x, y
-        log.info(repr(inp))
         # Switch case
         match inp:
             case '\x1b[C':  # Right
                 await move(1)
             case '\x1b[D':  # Left
                 await move(-1)
-            case '\x1b':  # Escape
+            case '\x1b' | 'q' | '\x03':  # Escape or q or Ctrl+C
                 writer.write('\r\nBye!\r\n')
                 writer.close()
                 return True
@@ -197,8 +195,8 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     async def listen_update():
         while True:
             await update()
-            # 30 fps
-            await asyncio.sleep(1 / 30)
+            # 20 fps
+            await asyncio.sleep(1 / 20)
 
     # Listen input function
     async def listen_input():
