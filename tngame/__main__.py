@@ -38,5 +38,5 @@ if __name__ == '__main__':
     observer.schedule(event_handler, path=str(script_path.absolute()), recursive=False)
     observer.start()
 
-    print("Watching for changes...")
+    print(f"Watching directory {script_path} for changes...")
     observer.join()
