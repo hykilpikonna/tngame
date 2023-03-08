@@ -3,25 +3,34 @@ import os
 import random
 import time
 from dataclasses import dataclass
-from typing import NamedTuple
 
 import telnetlib3
 from hyfetch.color_util import RGB
 from telnetlib3 import TelnetReaderUnicode, TelnetWriterUnicode
 
-from .utils import setup_logger
+from .utils import setup_logger, get_ascii_dimensions
 
 DEBUG = bool(os.environ.get("DEBUG", False))
 log = setup_logger(DEBUG)
 
 
-ASCII_CAT = r"""
-  /\_/\ 
- ( | | ) 
-  >   < """.strip('\n')
+class AsciiArt:
+    """An ASCII art object."""
+    art: str
+    h: int
+    w: int
+    credit: str
 
-ASCII_HEIGHT = ASCII_CAT.count('\n')
-ASCII_WIDTH = max(len(line.strip('\n')) for line in ASCII_CAT.splitlines())
+    def __init__(self, art: str, credit: str):
+        self.art = art.strip("\n")
+        self.h, self.w = get_ascii_dimensions(self.art)
+
+
+ASC_CAT = AsciiArt(r"""
+ /\_/\ 
+( | | )
+ >   < """, "Azalea")
+
 
 SNOW_DENSITY = 0.05  # Snow particles per pixel on screen
 SNOW_SPEED = 8  # Snow fall speed in pixels per second
