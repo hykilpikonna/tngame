@@ -1,6 +1,7 @@
 import asyncio
 import os
 import random
+import time
 from dataclasses import dataclass
 from typing import NamedTuple
 
@@ -35,10 +36,10 @@ COLORS = [RGB.from_hex(v) for v in {
 # Snow fall data structure
 @dataclass
 class SnowParticle:
-    x: int  # x position
-    y: int  # y position
-    xv: int  # x velocity
-    yv: int  # y velocity
+    x: float  # x position
+    y: float  # y position
+    xv: float  # x velocity in pixels per second
+    yv: float  # y velocity in pixels per second
     color: RGB  # color
 
 
@@ -51,6 +52,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     x: int
     y: int
     snow: list[SnowParticle]
+    last_update_ns: int
 
     # Create snow particles
     def create_snow(count: int | None) -> list[SnowParticle]:
@@ -100,7 +102,9 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
                 particle.y = 0
 
             # Draw snow particle
-            writer.write(f'\x1b[{particle.y};{particle.x}H\x1b[38;2;{particle.color.r};{particle.color.g};{particle.color.b}m*')
+            writer.write(f'\x1b[{int(particle.y)};{int(particle.x)}H'
+                         f'{particle.color.to_ansi_rgb()}*'
+                         f'\x1b[0m')
 
     # Get the size of the terminal
     async def get_size() -> tuple[int, int]:
@@ -129,24 +133,6 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         writer.write('\x1b[2J')
         writer.write('\x1b[H')
 
-    clear()
-    height, width = await get_size()
-    log.info(f"Size: {width}x{height}")
-
-    # Position the cat at center bottom by default
-    x, y = (width - ASCII_WIDTH) // 2, height - ASCII_HEIGHT
-
-    # Create snow particles
-    snow = create_snow(100)
-
-    # Draw the cat function
-    def draw_cat():
-        log.info(f"Drawing cat at {x}, {y}")
-        clear()
-
-        # Draw the cat
-        print_ascii(ASCII_CAT, x, y)
-
     # Move the cat along the x-axis
     async def move(delta: int):
         nonlocal x
@@ -154,10 +140,17 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
     # Update frame function
     async def update():
-        # Move the cat
-        draw_cat()
+        # Calculate the time since last update in seconds
+        nonlocal last_update_ns
+        now = time.time_ns()
+        dt = (now - last_update_ns) / 1e9
+        last_update_ns = now
+
+        clear()
         # Update snow
         update_snow()
+        # Move the cat
+        print_ascii(ASCII_CAT, x, y)
         # Move the cursor to the bottom
         writer.write('\x1b[9999;9999H')
         # Flush the output
@@ -195,6 +188,18 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             inp: str = await reader.read(3)
             if inp and await on_input(inp):
                 return
+
+    # Initialize the shell
+    clear()
+    height, width = await get_size()
+    last_update_ns = time.time_ns()
+    log.info(f"Size: {width}x{height}")
+
+    # Position the cat at center bottom by default
+    x, y = (width - ASCII_WIDTH) // 2, height - ASCII_HEIGHT
+
+    # Create snow particles
+    snow = create_snow(100)
 
     # Run listen and update in parallel
     await asyncio.gather(listen_input(), listen_update())
