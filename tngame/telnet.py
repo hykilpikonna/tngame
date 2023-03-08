@@ -1,5 +1,7 @@
 import asyncio
 import os
+import random
+from dataclasses import dataclass
 from typing import NamedTuple
 
 import telnetlib3
@@ -21,20 +23,21 @@ ASCII_HEIGHT = ASCII_CAT.count('\n')
 ASCII_WIDTH = max(len(line.strip('\n')) for line in ASCII_CAT.splitlines())
 
 
-COLORS = {RGB.from_hex(v) for v in {
+COLORS = [RGB.from_hex(v) for v in {
     '#FFFFFF',
     '#F6AAB7',
     '#55CDFD'
-}}
+}]
 
 
 # Snow fall data structure
-class SnowParticle(NamedTuple):
+@dataclass
+class SnowParticle:
     x: int  # x position
     y: int  # y position
     xv: int  # x velocity
     yv: int  # y velocity
-    color: RGB
+    color: RGB  # color
 
 
 async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
