@@ -71,23 +71,16 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     # Move the cat along the x-axis
     async def move(delta: int):
         nonlocal x
-        orig = x
         x = min(max(x + delta, 0), width - ASCII_WIDTH)
-        if x != orig:
-            await update()
 
     # Update frame function
     async def update():
-        while True:
-            draw_cat()
-            await asyncio.sleep(0.1)
-
-    # Listen input function
-    async def listen():
-        while True:
-            inp: str = await reader.read(3)
-            if inp and await on_input(inp):
-                return
+        # Move the cat
+        draw_cat()
+        # Move the cursor to the bottom
+        writer.write('\x1b[9999;9999H')
+        # Flush the output
+        await writer.drain()
 
     # Handle input function
     async def on_input(inp: str):
@@ -106,13 +99,24 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             case _:
                 log.info(f'Unknown input: {repr(inp)}')
 
-        # Draw the cat
-        draw_cat()
-        # Flush the output
-        await writer.drain()
+        await update()
+
+    # Update frame function
+    async def listen_update():
+        while True:
+            await update()
+            # Wait for 0.1s
+            await asyncio.sleep(0.1)
+
+    # Listen input function
+    async def listen_input():
+        while True:
+            inp: str = await reader.read(3)
+            if inp and await on_input(inp):
+                return
 
     # Run listen and update in parallel
-    await asyncio.gather(listen(), update())
+    await asyncio.gather(listen_input(), listen_update())
 
 
 def run():
