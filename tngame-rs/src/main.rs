@@ -95,7 +95,7 @@ struct Consts {
     asc_house: AsciiArt,
 }
 
-struct Main {
+struct Mutes {
     width: u16,
     height: u16,
     x: u16,
@@ -106,6 +106,11 @@ struct Main {
     last_update: Instant,
 
     snow: Vec<SnowParticle>,
+}
+
+struct Main {
+    mt: Mutes,
+    cn: Consts,
 }
 
 impl Consts {
@@ -145,7 +150,7 @@ impl Consts {
     }
 }
 
-impl Main {
+impl Mutes {
     fn new(consts: &Consts) -> Self {
         // Get the terminal size
         let (width, height) = termion::terminal_size().unwrap();
@@ -281,16 +286,29 @@ impl Main {
 
         Ok(buf_str)
     }
+}
 
-    fn draw_ascii_frame(&mut self, consts: &Consts) {
+impl Main {
+    fn new() -> Self {
+        // Create the mutes object
+        let consts = Consts::new();
+        let mut mutes = Mutes::new(&consts);
+
+        Self {
+            cn: consts,
+            mt: mutes,
+        }
+    }
+
+    fn draw_ascii_frame(&mut self) {
         // Draw the cat
-        self.print_ascii(&consts.asc_cat, self.x, 0, "\x1b[38;2;255;231;151m");
+        self.mt.print_ascii(&self.cn.asc_cat, self.mt.x, 0, "\x1b[38;2;255;231;151m");
 
         // Draw the tree
-        self.print_ascii(&consts.asc_tree, 0, 0, "\x1b[38;2;0;255;0m");
+        self.mt.print_ascii(&self.cn.asc_tree, 0, 0, "\x1b[38;2;0;255;0m");
 
         // Draw the house
-        self.print_ascii(&consts.asc_house, 0, 0, "\x1b[38;2;255;0;0m");
+        self.mt.print_ascii(&self.cn.asc_house, 0, 0, "\x1b[38;2;255;0;0m");
     }
 
     fn start_loop(&mut self) {
@@ -304,15 +322,15 @@ impl Main {
             let now = Instant::now();
 
             // Calculate the delta time
-            let dt = (now - self.last_update).as_secs_f32();
-            self.last_update = now;
+            let dt = (now - self.mt.last_update).as_secs_f32();
+            self.mt.last_update = now;
 
             // Update the snow
-            self.update_snow(dt);
+            self.mt.update_snow(dt);
 
             // Draw the buffer, time it, and print it
             let start = Instant::now();
-            let txt = self.draw_buf().unwrap();
+            let txt = self.mt.draw_buf().unwrap();
             let end = Instant::now();
             let draw_time = (end - start).as_secs_f32();
             print!("\rDraw time: {:.2}ms", draw_time * 1000.0);
@@ -331,7 +349,6 @@ fn main() {
     pretty_env_logger::init();
 
     // Create the Main object
-    let consts = Consts::new();
-    let mut main = Main::new(&consts);
+    let mut main = Main::new();
     main.start_loop();
 }
