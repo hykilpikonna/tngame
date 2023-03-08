@@ -54,6 +54,10 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         writer.write('\x1b[H')
 
     clear()
+    height, width = await get_size()
+    log.info(f"Size: {width}x{height}")
+
+    # Position of the cat
     x, y = 0, height - ASCII_HEIGHT
 
 
