@@ -1,5 +1,6 @@
 import asyncio
 import os
+from typing import NamedTuple
 
 import telnetlib3
 from hyfetch.color_util import RGB
@@ -27,8 +28,24 @@ COLORS = {RGB.from_hex(v) for v in {
 }}
 
 
-async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
+# Snow fall data structure
+class Snow(NamedTuple):
+    x: int
+    y: int
+    color: RGB
 
+
+async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
+    """
+    The main shell function.
+    """
+    height: int
+    width: int
+    x: int
+    y: int
+    snow: list[Snow]
+
+    # Get the size of the terminal
     async def get_size() -> tuple[int, int]:
         # Get the size of the terminal
         writer.write('\x1b[18t')
@@ -41,6 +58,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
         return height, width
 
+    # Print ascii art
     def print_ascii(asc: str, x: int, y: int):
         asc = asc.strip('\n')
         # Write ascii line by line
@@ -48,6 +66,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             writer.write(f'\x1b[{y + i};{x}H')
             writer.write(line)
 
+    # Clear the screen
     def clear():
         # Clear the screen
         writer.write('\x1b[2J')
