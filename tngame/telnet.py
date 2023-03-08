@@ -37,6 +37,8 @@ COLORS = [RGB.from_hex(v) for v in {
 # Snow fall data structure
 @dataclass
 class SnowParticle:
+    last_x: int  # last rendered x position (pixels)
+    last_y: int  # last rendered y position
     x: float  # x position
     y: float  # y position
     xv: float  # x velocity in pixels per second
@@ -66,6 +68,9 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
         snow = []
 
+        # Sort snow particles by y position
+        snow.sort(key=lambda p: p.y)
+
         for _ in range(count):
             # Generate random x and y position
             x = random.randint(0, width)
@@ -77,38 +82,48 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             # Generate random color
             color = random.choice(COLORS)
 
-            snow.append(SnowParticle(x, y, xv, yv, color))
+            snow.append(SnowParticle(round(x), round(y), x, y, xv, yv, color))
 
         return snow
 
     # Update snow particles
     def update_snow(dt: float):
+        log.info(f'Updating snow particles: {dt}')
         nonlocal snow
-        # Erase snow particles
-        for particle in snow:
-            # Erase snow particle
-            writer.write(f'\x1b[{particle.y};{particle.x}H\x1b[0m ')
+
+        buf = ""
 
         # Update snow particles
-        for particle in snow:
+        for p in snow:
             # Update position
-            particle.x += particle.xv * dt
-            particle.y += particle.yv * dt
+            p.x += p.xv * dt
+            p.y += p.yv * dt
 
             # Wrap around the screen
-            if particle.x >= width:
-                particle.x = 0
-            elif particle.x < 0:
-                particle.x = width - 1
+            if p.x >= width:
+                p.x = 1
+            elif p.x < 1:
+                p.x = width - 1
 
-            if particle.y >= height:
-                particle.y = 0
-                particle.xv, particle.yv = rand_velocity()
+            if p.y >= height:
+                p.y = 1
+                p.xv, p.yv = rand_velocity()
 
-            # Draw snow particle
-            writer.write(f'\x1b[{round(particle.y)};{round(particle.x)}H'
-                         f'{particle.color.to_ansi_rgb()}*'
-                         f'\x1b[0m')
+            # Check if position changed
+            if round(p.y) != p.last_y:
+                # Erase old position
+                buf += f'\x1b[{p.last_y};{p.last_x}H\x1b[0m '
+
+                # Draw snow particle
+                buf += (f'\x1b[{round(p.y)};{round(p.x)}H'
+                        f'{p.color.to_ansi_rgb()}*'
+                        f'\x1b[0m')
+
+                # Update last position
+                p.last_x, p.last_y = round(p.x), round(p.y)
+
+        # Write buffer
+        writer.write(buf)
 
     # Get the size of the terminal
     async def get_size() -> tuple[int, int]:
@@ -150,10 +165,9 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         dt = (now - last_update_ns) / 1e9
         last_update_ns = now
 
-        clear()
         # Update snow
         update_snow(dt)
-        # Move the cat
+        # Draw cat
         print_ascii(ASCII_CAT, x, y)
         # Move the cursor to the bottom
         writer.write('\x1b[9999;9999H')
