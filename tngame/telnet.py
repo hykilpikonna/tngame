@@ -68,6 +68,12 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         # Draw the cat
         print_ascii(ASCII_CAT, x, y)
 
+    # Update frame function
+    async def update():
+        while True:
+            draw_cat()
+            await asyncio.sleep(0.1)
+
 
 def run():
     # Create a new event loop, start the server and wait for it to close
