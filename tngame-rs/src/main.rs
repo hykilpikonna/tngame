@@ -14,9 +14,9 @@ use termion::cursor::Goto;
 const RESET: &str = "\x1b[0m";
 
 /// Constants
-const SNOW_DENSITY: f32 = 0.05; // Snow particles per pixel on screen
-const SNOW_SPEED: f32 = 8.0; // Snow fall speed in pixels per second
-const SNOW_X_RAND: f32 = 0.8; // Snow x velocity randomization factor
+const SNOW_DENSITY: f32 = 0.04; // Snow particles per pixel on screen
+const SNOW_SPEED: f32 = 6.0; // Snow fall speed in pixels per second
+const SNOW_X_RAND: f32 = 0.5; // Snow x velocity randomization factor
 
 /// Colors: Convert them in python using hyfetch - print(repr(RGB.from_hex('#FFFFFF')))
 const COLORS_STR: [&str; 3] = [
@@ -198,7 +198,6 @@ impl Main {
 
         // Keep the current cursor
         let mut cursor = (0, 0);
-
         let mut ensure_cursor = |x: u16, y: u16, a: u16, buf_str: &mut String|
             if cursor != (x, y) {
                 // Go to the pixel position
@@ -252,7 +251,6 @@ impl Main {
 
         // Flush the buffer
         buf_str.push_str(&Goto(1, self.height as u16 + 1).to_string());
-        buf_str.push_str(&*termion::cursor::Show.to_string());
 
         Ok(buf_str)
     }
@@ -260,6 +258,7 @@ impl Main {
     fn start_loop(&mut self) {
         // Clear the screen
         print!("{}", termion::clear::All);
+        print!("{}", termion::cursor::Hide);
 
         // Start the loop
         loop {
@@ -280,7 +279,6 @@ impl Main {
             let draw_time = (end - start).as_secs_f32();
             print!("\rDraw time: {:.2}ms", draw_time * 1000.0);
             print!("{}", txt);
-
 
             // Set cursor to the bottom of the screen
             print!("\x1b[9999;9999H");
