@@ -29,9 +29,11 @@ COLORS = {RGB.from_hex(v) for v in {
 
 
 # Snow fall data structure
-class Snow(NamedTuple):
-    x: int
-    y: int
+class SnowParticle(NamedTuple):
+    x: int  # x position
+    y: int  # y position
+    xv: int  # x velocity
+    yv: int  # y velocity
     color: RGB
 
 
@@ -43,7 +45,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     width: int
     x: int
     y: int
-    snow: list[Snow]
+    snow: list[SnowParticle]
 
     # Get the size of the terminal
     async def get_size() -> tuple[int, int]:
