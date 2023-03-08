@@ -199,7 +199,17 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     # Move the cat along the x-axis
     async def move(delta: int):
         nonlocal x
-        x = min(max(x + delta, 0), width - ASCII_WIDTH)
+        old_x = x
+        x = min(max(x + delta, 0), width - ASC_CAT.w)
+
+        if old_x > x:
+            # Erase old cat right side
+            for i in range(ASC_CAT.h):
+                writer.write(f'\x1b[{y + i};{old_x + ASC_CAT.w - 1}H\x1b[0m ')
+        elif old_x < x:
+            # Erase old cat left side
+            for i in range(ASC_CAT.h):
+                writer.write(f'\x1b[{y + i};{old_x}H\x1b[0m ')
 
     # Update frame function
     async def update():
