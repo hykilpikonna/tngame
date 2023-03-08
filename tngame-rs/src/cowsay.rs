@@ -14,9 +14,9 @@ pub fn gen_bubble(text: &str) -> String {
         o.push_str(" ".repeat(max_width - line.len()).as_str());
         o.push_str(" |\n");
     }
-    o.push_str(".");
+    o.push_str("'");
     o.push_str("=".repeat(max_width + 2).as_str());
-    o.push_str(".\n");
+    o.push_str("'\n");
     o
 }
 
