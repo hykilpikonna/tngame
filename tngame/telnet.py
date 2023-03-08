@@ -29,6 +29,17 @@ COLORS = {RGB.from_hex(v) for v in {
 
 async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
+    async def get_size() -> tuple[int, int]:
+        # Get the size of the terminal
+        writer.write('\x1b[18t')
+        await writer.drain()
+        size = await reader.read(100)
+
+        # Parse the size, it's in the format of \x1b[8;{height};{width}t
+        height, width = size.split(';')[1:3]
+        height, width = int(height), int(width[:-1])
+
+        return height, width
 
     def print_ascii(asc: str, x: int, y: int):
         asc = asc.strip('\n')
