@@ -27,3 +27,16 @@ COLORS = {RGB.from_hex(v) for v in {
 }}
 
 
+async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
+
+    x, y = 0, height - ASCII_HEIGHT
+
+
+def run():
+    # Create a new event loop, start the server and wait for it to close
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    coro = telnetlib3.create_server(port=2323, shell=shell)
+    server = loop.run_until_complete(coro)
+    loop.run_until_complete(server.wait_closed())
+
