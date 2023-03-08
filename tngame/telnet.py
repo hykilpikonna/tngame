@@ -75,6 +75,33 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             snow.append(SnowParticle(x, y, xv, yv, color))
 
         return snow
+
+    # Update snow particles
+    def update_snow():
+        nonlocal snow
+        # Erase snow particles
+        for particle in snow:
+            # Erase snow particle
+            writer.write(f'\x1b[{particle.y};{particle.x}H\x1b[0m ')
+
+        # Update snow particles
+        for particle in snow:
+            # Update position
+            particle.x += particle.xv
+            particle.y += particle.yv
+
+            # Wrap around the screen
+            if particle.x >= width:
+                particle.x = 0
+            elif particle.x < 0:
+                particle.x = width - 1
+
+            if particle.y >= height:
+                particle.y = 0
+
+            # Draw snow particle
+            writer.write(f'\x1b[{particle.y};{particle.x}H\x1b[38;2;{particle.color.r};{particle.color.g};{particle.color.b}m*')
+
     # Get the size of the terminal
     async def get_size() -> tuple[int, int]:
         # Get the size of the terminal
@@ -109,6 +136,9 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     # Position the cat at center bottom by default
     x, y = (width - ASCII_WIDTH) // 2, height - ASCII_HEIGHT
 
+    # Create snow particles
+    snow = create_snow(100)
+
     # Draw the cat function
     def draw_cat():
         log.info(f"Drawing cat at {x}, {y}")
@@ -126,6 +156,8 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     async def update():
         # Move the cat
         draw_cat()
+        # Update snow
+        update_snow()
         # Move the cursor to the bottom
         writer.write('\x1b[9999;9999H')
         # Flush the output
