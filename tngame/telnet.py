@@ -8,6 +8,7 @@ import telnetlib3
 from hyfetch.color_util import RGB
 from telnetlib3 import TelnetReaderUnicode, TelnetWriterUnicode
 
+from .cowsay import generate_bubble
 from .utils import setup_logger, get_ascii_dimensions
 
 DEBUG = bool(os.environ.get("DEBUG", False))
@@ -195,6 +196,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
     def draw_cat():
         print_ascii(ASC_CAT, x, y, RGB.from_hex('#ffe797'))
+        print_ascii(generate_bubble('I hope I can sleep\n on the tree'), x + 6, y - 3, RGB.from_hex('#ffe797'))
 
     # Move the cat along the x-axis
     async def move(delta: int):
