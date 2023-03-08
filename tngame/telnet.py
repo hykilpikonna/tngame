@@ -4,6 +4,8 @@ import random
 import time
 from dataclasses import dataclass
 
+import numba
+import numpy as np
 import telnetlib3
 from hyfetch.color_util import RGB
 from telnetlib3 import TelnetReaderUnicode, TelnetWriterUnicode
@@ -55,6 +57,7 @@ ASC_HOUSE = AsciiArt(r"""
 
 SNOW_DENSITY = 0.05  # Snow particles per pixel on screen
 SNOW_SPEED = 8  # Snow fall speed in pixels per second
+SNOW_X_RAND = 0.8  # Snow x velocity randomization factor
 
 
 COLORS = [RGB.from_hex(v) for v in {
@@ -63,6 +66,8 @@ COLORS = [RGB.from_hex(v) for v in {
     '#55CDFD'
 }]
 
+print(repr(RGB.from_hex('#FFFFFF')))
+exit(0)
 
 # Snow fall data structure
 @dataclass
@@ -76,6 +81,39 @@ class SnowParticle:
     color: RGB  # color
 
 
+@numba.jit(nopython=True)
+def draw_buf_jit(width: int, height: int, last_buf: np.matrix, buf: np.matrix) -> str:
+    char_buf = ''
+    last_color = np.zeros(3, dtype=np.ubyte)
+
+    # Iterate over pixels
+    for x in range(width):
+        for y in range(height):
+            # Get pixel color
+            color = buf[x, y, 0:3]
+            char = buf[x, y, 3]
+            if char == 0:
+                char = 32  # Set empty pixels to space
+
+            # Check if pixel color has changed
+            if not np.array_equal(color, last_color) and not np.array_equal(color, last_buf[x, y, 0:3]):
+                # Set pixel color
+                char_buf += (f"\x1b[{y + 1};{x + 1}H"
+                             f"\x1b[38;2;{color[0]};{color[1]};{color[2]}m{chr(char)}")
+                last_color[:] = color[:]
+
+            # Check if pixel character has changed
+            elif char != last_buf[x, y, 3]:
+                # Set pixel character
+                char_buf += f"\x1b[{y + 1};{x + 1}H{chr(char)}"
+
+    # Update last buffer
+    last_buf[:] = buf[:]
+    buf[:, :, :] = 0
+
+    return char_buf
+
+
 async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     """
     The main shell function.
@@ -87,8 +125,28 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     snow: list[SnowParticle]
     last_update_ns: int
 
+    # Bitmap buffer
+    last_buf: np.matrix
+    buf: np.matrix
+
+    # Initialize buffers
+    def init_buffers():
+        nonlocal last_buf, buf
+
+        # Initialize color buffer
+        buf = np.zeros((width, height, 4), dtype=np.ubyte)
+        last_buf = buf.copy()
+
+    # Draw buffer to screen, dynamically updating only changed pixels
+    def draw_buf():
+        char_buf = draw_buf_jit(width, height, last_buf, buf)
+        # Write buffer to screen
+        writer.write(char_buf)
+
+
     def rand_velocity() -> tuple[float, float]:
-        return random.randrange(-1, 1) * SNOW_SPEED, random.randrange(1, 2) * SNOW_SPEED
+        return random.uniform(-SNOW_X_RAND, SNOW_X_RAND) * SNOW_SPEED, \
+            random.uniform(1, 2) * SNOW_SPEED
 
     # Create snow particles
     def create_snow(count: int | None) -> list[SnowParticle]:
@@ -97,9 +155,6 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             count = int(width * height * SNOW_DENSITY)
 
         snow = []
-
-        # Sort snow particles by y position
-        snow.sort(key=lambda p: p.y)
 
         for _ in range(count):
             # Generate random x and y position
@@ -112,15 +167,14 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             # Generate random color
             color = random.choice(COLORS)
 
-            snow.append(SnowParticle(round(x), round(y), x, y, xv, yv, color))
+            snow.append(SnowParticle(0, 0, x, y, xv, yv, color))
 
-        return snow
+        # Sort snow particles by y position
+        return sorted(snow, key=lambda p: p.y)
 
     # Update snow particles
     def update_snow(dt: float):
         nonlocal snow
-
-        buf = ""
 
         # Update snow particles
         for p in snow:
@@ -129,30 +183,14 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             p.y += p.yv * dt
 
             # Wrap around the screen
-            if p.x >= width:
-                p.x = 1
-            elif p.x < 1:
-                p.x = width - 1
-
-            if p.y >= height:
+            p.x = max(1.0, min(width - 1.0, p.x))
+            if p.y >= height - 1:
                 p.y = 1
                 p.xv, p.yv = rand_velocity()
 
-            # Check if position changed
-            if round(p.y) != p.last_y:
-                # Erase old position
-                buf += f'\x1b[{p.last_y};{p.last_x}H\x1b[0m '
-
-                # Draw snow particle
-                buf += (f'\x1b[{round(p.y)};{round(p.x)}H'
-                        f'{p.color.to_ansi_rgb()}*'
-                        f'\x1b[0m')
-
-                # Update last position
-                p.last_x, p.last_y = round(p.x), round(p.y)
-
-        # Write buffer
-        writer.write(buf)
+            # Draw new position to buffer
+            buf[round(p.x), round(p.y), 0:3] = tuple(p.color)
+            buf[round(p.x), round(p.y), 3] = ord('*')
 
     # Get the size of the terminal
     async def get_size() -> tuple[int, int]:
@@ -168,19 +206,17 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         return height, width
 
     # Print ascii art
-    def print_ascii(asc: str | AsciiArt, x: int, y: int, color: RGB | None = None, pad: int = 0):
+    def print_ascii(asc: str | AsciiArt, x: int, y: int, color: RGB | None = None):
         if isinstance(asc, AsciiArt):
             asc = asc.art
         asc = asc.strip('\n')
         # Write ascii line by line
         for i, line in enumerate(asc.splitlines()):
-            writer.write(f'\x1b[{y + i};{x}H')
-            writer.write(' ' * pad)
             if color is not None:
-                writer.write(color.to_ansi_rgb())
-            writer.write(line)
-            writer.write(' ' * pad)
-            writer.write('\x1b[0m')
+                # Set color
+                buf[x:x + len(line), y + i - 1, 0:3] = tuple(color)
+            # Write line
+            buf[x:x + len(line), y + i - 1, 3] = np.frombuffer(line.encode(), dtype=np.ubyte)
 
     # Clear the screen
     def clear():
@@ -190,9 +226,10 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
     # Draw the tree
     def draw_tree():
-        print_ascii(ASC_TREE, (width - 2 * ASC_TREE.w) // 4, height - ASC_TREE.h, RGB.from_hex('#ccff58'))
-        print_ascii(ASC_TREE, (width + 2 * ASC_TREE.w) // 2, height - ASC_TREE.h, RGB.from_hex('#ccff58'))
-        print_ascii(ASC_HOUSE, (width + ASC_HOUSE.w) // 2, height - ASC_HOUSE.h, RGB.from_hex('#fbc26e'))
+        # print_ascii(ASC_TREE, (width - 2 * ASC_TREE.w) // 4, height - ASC_TREE.h, RGB.from_hex('#ccff58'))
+        # print_ascii(ASC_TREE, (width + 2 * ASC_TREE.w) // 2, height - ASC_TREE.h, RGB.from_hex('#ccff58'))
+        # print_ascii(ASC_HOUSE, (width + ASC_HOUSE.w) // 2, height - ASC_HOUSE.h, RGB.from_hex('#fbc26e'))
+        pass
 
     def draw_cat():
         print_ascii(ASC_CAT, x, y, RGB.from_hex('#ffe797'))
@@ -213,16 +250,25 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             for i in range(ASC_CAT.h):
                 writer.write(f'\x1b[{y + i};{old_x}H\x1b[0m ')
 
+    draw_buf_time = 0
+    draw_buf_count = 0
+
     # Update frame function
     async def update():
         # Calculate the time since last update in seconds
-        nonlocal last_update_ns
+        nonlocal last_update_ns, draw_buf_time, draw_buf_count
         now = time.time_ns()
         dt = (now - last_update_ns) / 1e9
         last_update_ns = now
 
         # Update snow
         update_snow(dt)
+        db_time = time.time_ns()
+        draw_buf()
+        draw_buf_count += 1
+        if draw_buf_count != 1:
+            draw_buf_time += time.time_ns() - db_time
+        log.info(f'Average draw_buf time: {draw_buf_time / draw_buf_count / 1e6}ms')
         # Draw cat
         draw_tree()
         draw_cat()
@@ -274,6 +320,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
     # Create snow particles
     snow = create_snow(100)
+    init_buffers()
 
     # Run listen and update in parallel
     await asyncio.gather(listen_input(), listen_update())
