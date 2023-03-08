@@ -22,6 +22,8 @@ ASCII_CAT = r"""
 ASCII_HEIGHT = ASCII_CAT.count('\n')
 ASCII_WIDTH = max(len(line.strip('\n')) for line in ASCII_CAT.splitlines())
 
+SNOW_DENSITY = 0.05  # Snow particles per pixel on screen
+
 
 COLORS = [RGB.from_hex(v) for v in {
     '#FFFFFF',
@@ -51,7 +53,11 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     snow: list[SnowParticle]
 
     # Create snow particles
-    def create_snow(count: int) -> list[SnowParticle]:
+    def create_snow(count: int | None) -> list[SnowParticle]:
+        # Calculate snow particle count based on screen size and density
+        if count is None:
+            count = int(width * height * SNOW_DENSITY)
+
         snow = []
 
         for _ in range(count):
