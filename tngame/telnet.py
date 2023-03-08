@@ -68,6 +68,14 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         # Draw the cat
         print_ascii(ASCII_CAT, x, y)
 
+    # Move the cat along the x-axis
+    async def move(delta: int):
+        nonlocal x
+        orig = x
+        x = min(max(x + delta, 0), width - ASCII_WIDTH)
+        if x != orig:
+            await update()
+
     # Update frame function
     async def update():
         while True:
@@ -88,13 +96,9 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         # Switch case
         match inp:
             case '\x1b[C':  # Right
-                x += 1
+                await move(1)
             case '\x1b[D':  # Left
-                x -= 1
-            # case '\x1b[A':  # Up
-            #     y -= 1
-            # case '\x1b[B':  # Down
-            #     y += 1
+                await move(-1)
             case '\x1b':  # Escape
                 writer.write('\r\nBye!\r\n')
                 writer.close()
