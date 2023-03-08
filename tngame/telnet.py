@@ -167,12 +167,19 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         return height, width
 
     # Print ascii art
-    def print_ascii(asc: str, x: int, y: int):
+    def print_ascii(asc: str | AsciiArt, x: int, y: int, color: RGB | None = None, pad: int = 0):
+        if isinstance(asc, AsciiArt):
+            asc = asc.art
         asc = asc.strip('\n')
         # Write ascii line by line
         for i, line in enumerate(asc.splitlines()):
             writer.write(f'\x1b[{y + i};{x}H')
+            writer.write(' ' * pad)
+            if color is not None:
+                writer.write(color.to_ansi_rgb())
             writer.write(line)
+            writer.write(' ' * pad)
+            writer.write('\x1b[0m')
 
     # Clear the screen
     def clear():
