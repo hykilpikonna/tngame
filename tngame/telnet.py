@@ -24,6 +24,7 @@ ASCII_HEIGHT = ASCII_CAT.count('\n')
 ASCII_WIDTH = max(len(line.strip('\n')) for line in ASCII_CAT.splitlines())
 
 SNOW_DENSITY = 0.05  # Snow particles per pixel on screen
+SNOW_SPEED = 8  # Snow fall speed in pixels per second
 
 
 COLORS = [RGB.from_hex(v) for v in {
@@ -54,6 +55,9 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     snow: list[SnowParticle]
     last_update_ns: int
 
+    def rand_velocity() -> tuple[float, float]:
+        return random.randrange(-1, 1) * SNOW_SPEED, random.randrange(1, 2) * SNOW_SPEED
+
     # Create snow particles
     def create_snow(count: int | None) -> list[SnowParticle]:
         # Calculate snow particle count based on screen size and density
@@ -68,8 +72,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
             y = random.randint(0, height)
 
             # Generate random x and y velocity
-            xv = random.randint(-1, 1)
-            yv = random.randint(1, 2)
+            xv, yv = rand_velocity()
 
             # Generate random color
             color = random.choice(COLORS)
@@ -100,9 +103,10 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
             if particle.y >= height:
                 particle.y = 0
+                particle.xv, particle.yv = rand_velocity()
 
             # Draw snow particle
-            writer.write(f'\x1b[{int(particle.y)};{int(particle.x)}H'
+            writer.write(f'\x1b[{round(particle.y)};{round(particle.x)}H'
                          f'{particle.color.to_ansi_rgb()}*'
                          f'\x1b[0m')
 
