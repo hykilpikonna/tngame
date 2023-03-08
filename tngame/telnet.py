@@ -60,6 +60,14 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     # Position of the cat
     x, y = 0, height - ASCII_HEIGHT
 
+    # Draw the cat function
+    def draw_cat():
+        log.info(f"Drawing cat at {x}, {y}")
+        clear()
+
+        # Draw the cat
+        print_ascii(ASCII_CAT, x, y)
+
 
 def run():
     # Create a new event loop, start the server and wait for it to close
