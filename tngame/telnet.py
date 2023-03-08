@@ -30,6 +30,13 @@ COLORS = {RGB.from_hex(v) for v in {
 async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
 
+    def print_ascii(asc: str, x: int, y: int):
+        asc = asc.strip('\n')
+        # Write ascii line by line
+        for i, line in enumerate(asc.splitlines()):
+            writer.write(f'\x1b[{y + i};{x}H')
+            writer.write(line)
+
     def clear():
         # Clear the screen
         writer.write('\x1b[2J')
