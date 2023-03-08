@@ -57,8 +57,8 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     height, width = await get_size()
     log.info(f"Size: {width}x{height}")
 
-    # Position of the cat
-    x, y = 0, height - ASCII_HEIGHT
+    # Position the cat at center bottom by default
+    x, y = (width - ASCII_WIDTH) // 2, height - ASCII_HEIGHT
 
     # Draw the cat function
     def draw_cat():
