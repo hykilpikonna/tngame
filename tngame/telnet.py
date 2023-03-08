@@ -187,6 +187,15 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         writer.write('\x1b[2J')
         writer.write('\x1b[H')
 
+    # Draw the tree
+    def draw_tree():
+        print_ascii(ASC_TREE, (width - 2 * ASC_TREE.w) // 4, height - ASC_TREE.h, RGB.from_hex('#ccff58'))
+        print_ascii(ASC_TREE, (width + 2 * ASC_TREE.w) // 2, height - ASC_TREE.h, RGB.from_hex('#ccff58'))
+        print_ascii(ASC_HOUSE, (width + ASC_HOUSE.w) // 2, height - ASC_HOUSE.h, RGB.from_hex('#fbc26e'))
+
+    def draw_cat():
+        print_ascii(ASC_CAT, x, y, RGB.from_hex('#ffe797'))
+
     # Move the cat along the x-axis
     async def move(delta: int):
         nonlocal x
@@ -203,7 +212,8 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         # Update snow
         update_snow(dt)
         # Draw cat
-        print_ascii(ASCII_CAT, x, y)
+        draw_tree()
+        draw_cat()
         # Move the cursor to the bottom
         writer.write('\x1b[9999;9999H')
         # Flush the output
@@ -248,7 +258,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     log.info(f"Size: {width}x{height}")
 
     # Position the cat at center bottom by default
-    x, y = (width - ASCII_WIDTH) // 2, height - ASCII_HEIGHT
+    x, y = (width - ASC_CAT.w) // 2, height - ASC_CAT.h
 
     # Create snow particles
     snow = create_snow(100)
