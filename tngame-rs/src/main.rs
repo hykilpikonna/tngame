@@ -302,6 +302,10 @@ fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
     // Draw the house
     mt.print_ascii(&cn.asc_house, (mt.w + cn.asc_house.w) / 2, mt.h - cn.asc_house.h,
                    "\x1b[38;2;251;194;110m");
+
+    // Draw chat bubble
+    let bubble = gen_bubble_ascii("I wish I could\nlive on that tree.");
+    mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, "\x1b[38;2;255;231;151m");
 }
 
 fn start_loop(mt: &mut Mutes, cn: &Consts) {
