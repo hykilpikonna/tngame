@@ -1,4 +1,10 @@
 
+from .utils import setup_logger
+
+DEBUG = bool(os.environ.get("DEBUG", False))
+log = setup_logger(DEBUG)
+
+
 ASCII_CAT = r"""
  /\_/\
 ( | | )
