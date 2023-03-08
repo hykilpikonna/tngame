@@ -234,9 +234,9 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
         nonlocal x, y
         # Switch case
         match inp:
-            case '\x1b[C':  # Right
+            case '\x1b[C' | 'd':  # Right
                 await move(1)
-            case '\x1b[D':  # Left
+            case '\x1b[D' | 'a':  # Left
                 await move(-1)
             case '\x1b' | 'q' | '\x03':  # Escape or q or Ctrl+C
                 writer.write('\r\nBye!\r\n')
