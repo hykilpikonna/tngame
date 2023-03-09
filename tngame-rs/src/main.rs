@@ -256,6 +256,10 @@ impl Mutes {
         }
     }
 
+    fn get_scroll(&self) -> i32 {
+        return 0.max(self.x - (self.w * 3 / 4));
+    }
+
     fn print_ascii(&mut self, art: &AsciiArt, x: i32, y: i32, color: &'static str) {
         // Loop through all lines in the ascii art
         for (i, line) in art.art.lines().enumerate() {
