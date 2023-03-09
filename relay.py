@@ -96,6 +96,11 @@ if __name__ == '__main__':
     parser.add_argument('--bin', type=str, default='./tngame-rs/target/release/tngame-rs')
     args = parser.parse_args()
 
+    # Check if bin file exists and is executable
+    if not os.path.isfile(args.bin) or not os.access(args.bin, os.X_OK):
+        log.error(f"Binary file {args.bin} does not exist or is not executable.")
+        exit(1)
+
     # Create a new event loop, start the server and wait for it to close
     print(f"Starting server on port {args.port}.")
     loop = asyncio.new_event_loop()
