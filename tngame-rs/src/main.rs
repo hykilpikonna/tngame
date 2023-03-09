@@ -1,19 +1,20 @@
 #![feature(let_chains)]
 
-use std::{env, mem};
+use std::{env};
+use std::arch::asm;
 use std::io::Write;
 use std::ops::DerefMut;
-use std::process::exit;
 use std::string::ToString;
-use std::sync::{Arc};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Error, Result};
 use rand::Rng;
 use termion::cursor::Goto;
-use termion::raw::{IntoRawMode, RawTerminal};
-use tokio::io::{AsyncReadExt, stdin, stdout, AsyncWriteExt};
+use termion::raw::{IntoRawMode};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, stdin, stdout};
 use tokio::sync::Mutex;
+
 use crate::cowsay::gen_bubble_ascii;
 
 mod cowsay;
@@ -37,6 +38,9 @@ const COLORS_STR: [&str; 3] = [
     // # 55CDFD
     "\x1b[38;2;85;205;253m"
 ];
+const COLOR_CAT: &str = "\x1b[38;2;255;231;151m";
+const COLOR_TREE: &str = "\x1b[38;2;204;255;88m";
+const COLOR_HOUSE: &str = "\x1b[38;2;251;194;110m";
 
 /// Snow particle struct
 struct SnowParticle {
@@ -116,6 +120,13 @@ struct Mutes {
 
     snow: Vec<SnowParticle>,
     should_exit: bool,
+    state: State
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum State {
+    Welcome,
+    Exploring
 }
 
 struct Main {
@@ -204,6 +215,7 @@ impl Mutes {
             last_update: Instant::now(),
             snow,
             should_exit: false,
+            state: State::Welcome
         }
     }
 
@@ -315,27 +327,48 @@ impl Mutes {
 
 fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
     // Draw the tree
-    mt.print_ascii(&cn.asc_tree, (mt.w - 2 * cn.asc_tree.w) / 4, mt.h - cn.asc_tree.h,
-                   "\x1b[38;2;204;255;88m");
-    mt.print_ascii(&cn.asc_tree, (mt.w + 2 * cn.asc_tree.w) / 2, mt.h - cn.asc_tree.h,
-                   "\x1b[38;2;204;255;88m");
+    let tree_1_start = (mt.w - 2 * cn.asc_tree.w) / 4;
+    let tree_2_start = (mt.w + 2 * cn.asc_tree.w) / 2;
+    mt.print_ascii(&cn.asc_tree, tree_1_start, mt.h - cn.asc_tree.h, COLOR_TREE);
+    mt.print_ascii(&cn.asc_tree, tree_2_start, mt.h - cn.asc_tree.h, COLOR_TREE);
 
     // Draw the house
-    mt.print_ascii(&cn.asc_house, (mt.w + cn.asc_house.w) / 2, mt.h - cn.asc_house.h,
-                   "\x1b[38;2;251;194;110m");
+    let house_start = (mt.w + cn.asc_house.w) / 2;
+    mt.print_ascii(&cn.asc_house, house_start, mt.h - cn.asc_house.h, COLOR_HOUSE);
 
     // Draw title at the center of the screen
-    mt.print_ascii(&cn.asc_title, (mt.w - cn.asc_title.w) / 2, (mt.h - cn.asc_title.h) / 2,
-                   "\x1b[38;2;255;231;151m");
+    mt.print_ascii(&cn.asc_title, (mt.w - cn.asc_title.w) / 2, (mt.h - cn.asc_title.h) / 2, COLOR_CAT);
 
     // Draw the cat
-    mt.print_ascii(&cn.asc_cat, mt.x, mt.h - cn.asc_cat.h,
-                   "\x1b[38;2;255;231;151m");
+    mt.print_ascii(&cn.asc_cat, mt.x, mt.h - cn.asc_cat.h, COLOR_CAT);
 
-    // Draw chat bubble
-    let bubble = gen_bubble_ascii("I wish I could\nlive on that tree.");
-    mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h,
-                   "\x1b[38;2;255;231;151m");
+    if mt.state == State::Welcome {
+        // Draw "Welcome to my snowy world" chat bubble
+        let bubble = gen_bubble_ascii("Welcome to my\nsnowy world!");
+        mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, COLOR_CAT);
+    }
+    else {
+        // Check position, if the cat is near the tree...
+        if mt.x > tree_1_start && mt.x < tree_1_start + cn.asc_tree.w {
+            // Draw the chat bubble
+            let bubble = gen_bubble_ascii("I wish I could\nlive on that tree.");
+            mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, COLOR_CAT);
+        }
+
+        // Else: if the cat is near the house...
+        else if mt.x > house_start - cn.asc_cat.w && mt.x < house_start + cn.asc_house.w {
+            // Draw the chat bubble
+            let bubble = gen_bubble_ascii("I wonder what\nmy friends are doing.");
+            mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, COLOR_CAT);
+        }
+
+        // Else: If the cat is at the edge...
+        else if mt.x == 0 {
+            // Draw the chat bubble
+            let bubble = gen_bubble_ascii("The cliff, it looks so steep.\nI wish I can fly");
+            mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, COLOR_CAT);
+        }
+    }
 }
 
 
