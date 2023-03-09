@@ -1,24 +1,27 @@
 #![feature(let_chains)]
 
-use std::{mem, thread};
-use std::io::{Read, stdin, stdout, Stdout, Write};
+use std::{mem};
+use std::io::Write;
 use std::ops::DerefMut;
+use std::process::exit;
 use std::string::ToString;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use std::time::{Duration, Instant};
 
 use anyhow::{Error, Result};
 use rand::Rng;
-use termion::color::{Fg, Rgb};
 use termion::cursor::Goto;
-use termion::event::Key;
-use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
+use tokio::io::{AsyncReadExt, stdin, stdout, AsyncWriteExt};
+use tokio::sync::Mutex;
 use crate::cowsay::gen_bubble_ascii;
 
 mod cowsay;
 
 const RESET: &str = "\x1b[0m";
+const CLEAR: &str = "\x1b[2J";
+const HIDE_CURSOR: &str = "\x1b[?25l";
+const SHOW_CURSOR: &str = "\x1b[?25h";
 
 /// Constants
 const SNOW_DENSITY: f32 = 0.04; // Snow particles per pixel on screen
@@ -113,6 +116,7 @@ struct Mutes {
     last_update: Instant,
 
     snow: Vec<SnowParticle>,
+    should_exit: bool,
 }
 
 struct Main {
@@ -188,6 +192,7 @@ impl Mutes {
             buf, last_buf,
             last_update: Instant::now(),
             snow,
+            should_exit: false,
         }
     }
 
@@ -330,7 +335,7 @@ fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
 }
 
 
-async fn start_update_loop(stdout: &mut RawTerminal<Stdout>, mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
+async fn start_update_loop(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
 
     // Start the loop
     loop {
@@ -339,7 +344,8 @@ async fn start_update_loop(stdout: &mut RawTerminal<Stdout>, mt: Arc<Mutex<Mutes
 
         let mut txt: String;
         {
-            let mut mt = mt.lock().unwrap();
+            let mut mt = mt.lock().await;
+            if mt.should_exit { break; }
 
             // Calculate the delta time
             let dt = (now - mt.last_update).as_secs_f32();
@@ -357,21 +363,23 @@ async fn start_update_loop(stdout: &mut RawTerminal<Stdout>, mt: Arc<Mutex<Mutes
 
         let draw_time = (end - now).as_secs_f32();
         txt.push_str(&*format!("\rDraw time: {:.2}ms", draw_time * 1000.0));
-        write!(stdout, "{}", txt)?;
+        stdout().write_all(txt.as_bytes()).await?;
+        // print!("{}", txt);
 
         // Use tokio to sleep for 1/20th of a second
         tokio::time::sleep(Duration::from_millis(1000 / 20)).await;
     }
+
+    Ok(())
 }
 
 async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
     // Read keyboard input in a loop
-    let stdin = stdin();
-    let mut stdin = stdin.lock();
+    let mut stdin = stdin();
     let mut buf = [0; 3];
     loop {
         // Read a byte from stdin
-        let n = stdin.read(&mut buf).unwrap();
+        let n = stdin.read(&mut buf).await?;
         if n == 0 { break; }
 
         let str = String::from_utf8_lossy(&buf[..n]).to_string();
@@ -384,17 +392,22 @@ async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
         }
         // print!("\r\n");
 
-        let move_x = |amount: i32| {
-            let mut mt = mt.lock().unwrap();
-            mt.x = (mt.x as i32 + amount).max(0).min((mt.w - 1) as i32) as u16;
-        };
+        {
+            let mut mt = mt.lock().await;
+            let mut move_x = |amount: i32| {
+                mt.x = (mt.x as i32 + amount).max(0).min((mt.w - 1) as i32) as u16;
+            };
 
-        // Switch on the key
-        match str.as_str() {
-            "q" => break,
-            "a" => move_x(-1),
-            "d" => move_x(1),
-            _ => (),
+            // Switch on the key
+            match str.as_str() {
+                "q" => {
+                    mt.should_exit = true;
+                    break;
+                },
+                "a" => move_x(-1),
+                "d" => move_x(1),
+                _ => (),
+            }
         }
 
         // Sleep for 1/100th of a second
@@ -404,33 +417,40 @@ async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
     Ok(())
 }
 
-fn main() {
+fn run() -> Result<()> {
     pretty_env_logger::init();
 
     let cn: &Consts = Box::leak(Box::new(Consts::new()));
-    let mut mt = Arc::new(Mutex::new(Mutes::new(&cn)));
+    let mt = Arc::new(Mutex::new(Mutes::new(&cn)));
 
     // Set terminal to raw mode
-    let mut stdout = stdout().into_raw_mode().unwrap();
+    let mut out = std::io::stdout().into_raw_mode().unwrap();
 
     // Clear the screen
-    write!(stdout, "{}", termion::clear::All).unwrap();
-    write!(stdout, "{}", termion::cursor::Hide).unwrap();
-    stdout.flush().unwrap();
+    out.write(CLEAR.as_ref())?;
+    out.write(HIDE_CURSOR.as_ref())?;
+    out.flush()?;
 
     // Start update_loop and pull_input concurrently and wait for them to finish
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
-        let update_loop = start_update_loop(&mut stdout, mt.clone(), cn);
+        let update_loop = start_update_loop( mt.clone(), cn);
         let pull_input = pull_input(mt.clone(), cn);
         tokio::try_join!(update_loop, pull_input)?;
         // tokio::try_join!(pull_input)?;
         Ok::<(), Error>(())
-    }).unwrap();
+    })?;
 
-    // Finish execution, set terminal back to normal
-    stdout.suspend_raw_mode().unwrap();
-    print!("{}", termion::cursor::Show);
-    print!("{}", termion::clear::All);
-    stdout.flush().unwrap();
+    // Reset the terminal
+    out.suspend_raw_mode().unwrap();
+    out.write(SHOW_CURSOR.as_ref())?;
+    out.write(CLEAR.as_ref())?;
+    out.write("Exiting...".as_ref())?;
+    out.flush()?;
+
+    Ok(())
+}
+
+fn main() {
+    run().expect("Error running program");
 }
