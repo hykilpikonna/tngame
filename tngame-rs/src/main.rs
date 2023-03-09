@@ -400,7 +400,8 @@ async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
 
             // Switch on the key
             match str.as_str() {
-                "q" => {
+                // exit on q or ctrl+c or esc
+                "q" | "\x03" | "\x1b" => {
                     mt.should_exit = true;
                     break;
                 },
@@ -445,7 +446,7 @@ fn run() -> Result<()> {
     out.suspend_raw_mode().unwrap();
     out.write(SHOW_CURSOR.as_ref())?;
     out.write(CLEAR.as_ref())?;
-    out.write("Exiting...".as_ref())?;
+    out.write("\r\nThanks for visiting <3\n".as_ref())?;
     out.flush()?;
 
     Ok(())
