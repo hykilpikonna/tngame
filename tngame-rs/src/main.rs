@@ -17,6 +17,7 @@ use tokio::sync::Mutex;
 use crate::cowsay::gen_bubble_ascii;
 
 mod cowsay;
+mod utils;
 
 const RESET: &str = "\x1b[0m";
 const CLEAR: &str = "\x1b[2J";
@@ -40,6 +41,8 @@ const COLORS_STR: [&str; 3] = [
 const COLOR_CAT: &str = "\x1b[38;2;255;231;151m";
 const COLOR_TREE: &str = "\x1b[38;2;204;255;88m";
 const COLOR_HOUSE: &str = "\x1b[38;2;251;194;110m";
+const COLOR_GRASS: &str = "\x1b[38;2;181;203;194m";
+const GRASS_CHARS: [char; 3] = ['.', ',', ';'];
 
 /// Snow particle struct
 struct SnowParticle {
@@ -283,6 +286,19 @@ impl Mutes {
                     self.buf[y as usize][x as usize] = Some(Pixel { color, char: c });
                 }
             }
+        }
+    }
+
+    fn draw_grass(&mut self) {
+        let scroll = self.get_scroll();
+
+        // Choose a grass character for the grass based on pseudo-random number by hashing x
+        for x in 0..self.w as i32 {
+            // Get hash of x
+            let mut hash = utils::hash((x + scroll) as u32);
+            let c = GRASS_CHARS[(hash % GRASS_CHARS.len() as u32) as usize];
+
+            self.buf[self.h as usize - 1][x as usize] = Some(Pixel { color: COLOR_GRASS, char: c });
         }
     }
 
