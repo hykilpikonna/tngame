@@ -405,8 +405,10 @@ async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
                     mt.should_exit = true;
                     break;
                 },
-                "a" => move_x(-1),
-                "d" => move_x(1),
+                // Move left on a or left arrow
+                "a" | "\x1b[D" => move_x(-1),
+                // Move right on d or right arrow
+                "d" | "\x1b[C" => move_x(1),
                 _ => (),
             }
         }
