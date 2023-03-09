@@ -1,7 +1,6 @@
 #![feature(let_chains)]
 
-use std::{env};
-use std::arch::asm;
+use std::{env, io};
 use std::io::Write;
 use std::ops::DerefMut;
 use std::string::ToString;
@@ -197,6 +196,12 @@ impl Mutes {
             let (w, h) = termion::terminal_size().unwrap();
             width = w as i32;
             height = h as i32;
+            if env::var("TN_DEBUG").is_ok() {
+                println!("Terminal size: {}x{}", width, height);
+                // Press enter to continue
+                let mut input = String::new();
+                io::stdin().read_line(&mut input).unwrap();
+            }
         }
 
         // Initialize the buffers
@@ -425,14 +430,6 @@ async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
         if n == 0 { break; }
 
         let str = String::from_utf8_lossy(&buf[..n]).to_string();
-
-        // Print bytes for debug
-        for i in 0..n {
-            for e in std::ascii::escape_default(buf[i]) {
-                print!("{}", e as char);
-            }
-        }
-        // print!("\r\n");
 
         {
             let mut mt = mt.lock().await;
