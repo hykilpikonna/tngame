@@ -260,7 +260,6 @@ impl Mutes {
         // Loop through all lines in the ascii art
         for (i, line) in art.art.lines().enumerate() {
             let first_non_space = line.chars().position(|c| c != ' ').unwrap_or(0);
-            if (x + first_non_space as i32) < 0 { continue; }
             // Loop through all characters in the line
             for (j, c) in line.chars().enumerate() {
                 if j < first_non_space { continue; }
