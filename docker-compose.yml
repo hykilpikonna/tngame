@@ -1,0 +1,7 @@
+services:
+  tng:
+    container_name: tng
+    image: hykilpikonna/tngame
+    build: .
+    ports:
+      - "23:2323"
