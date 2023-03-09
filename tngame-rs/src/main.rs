@@ -427,6 +427,7 @@ async fn start_update_loop(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
 
             // Update scenes
             mt.last_update = now;
+            mt.draw_grass();
             mt.update_snow(dt);
             draw_ascii_frame(mt.deref_mut(), cn);
 
