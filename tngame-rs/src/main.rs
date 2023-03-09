@@ -359,12 +359,20 @@ impl Mutes {
     }
 }
 
+// Tree x positions as percentages of the screen width
+const TREE_X_POSITIONS: [f32; 5] = [2.4, 3.2, 4.0, 4.5, 5.2];
+
 fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
     // Draw the tree
     let tree_1_start = (mt.w - 2 * cn.asc_tree.w) / 4;
     let tree_2_start = (mt.w + 2 * cn.asc_tree.w) / 2;
     mt.print_ascii(&cn.asc_tree, tree_1_start, mt.h - cn.asc_tree.h, COLOR_TREE);
     mt.print_ascii(&cn.asc_tree, tree_2_start, mt.h - cn.asc_tree.h, COLOR_TREE);
+
+    for x in TREE_X_POSITIONS.iter() {
+        let x = (mt.w as f32 * x).round() as i32;
+        mt.print_ascii(&cn.asc_tree, x, mt.h - cn.asc_tree.h, COLOR_TREE);
+    }
 
     // Draw the house
     let house_start = (mt.w + cn.asc_house.w) / 2;
