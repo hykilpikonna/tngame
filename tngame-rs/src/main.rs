@@ -55,8 +55,8 @@ struct SnowParticle {
 #[derive(Clone, PartialEq, Eq)]
 pub struct AsciiArt {
     art: String,
-    h: u16,
-    w: u16,
+    h: i32,
+    w: i32,
     credit: String,
 }
 
@@ -68,8 +68,8 @@ impl AsciiArt {
         let w = art.lines().map(|l| l.len()).max().unwrap_or(0);
         Self {
             art: art.to_string(),
-            h: h as u16,
-            w: w as u16,
+            h: h as i32,
+            w: w as i32,
             credit: credit.to_string(),
         }
     }
@@ -88,7 +88,7 @@ fn snow_rand_velocity() -> (f32, f32) {
     (vx, vy)
 }
 
-fn create_snow(width: u16, height: u16) -> Vec<SnowParticle> {
+fn create_snow(width: i32, height: i32) -> Vec<SnowParticle> {
     let count: u16 = ((width * height) as f32 * SNOW_DENSITY) as u16;
     let mut snow = Vec::with_capacity(count as usize);
     let mut rng = rand::thread_rng();
@@ -110,9 +110,9 @@ struct Consts {
 }
 
 struct Mutes {
-    w: u16,
-    h: u16,
-    x: u16,
+    w: i32,
+    h: i32,
+    x: i32,
 
     buf: Vec<Vec<Option<Pixel>>>,
 
@@ -184,8 +184,8 @@ _) [ )(_) \/\/ \_|   \/\/ (_)[  |(_]
 impl Mutes {
     fn new(consts: &Consts) -> Self {
         // Get the terminal size
-        let width: u16;
-        let height: u16;
+        let width: i32;
+        let height: i32;
         if let Ok(size) = env::var("TN_TERM_SIZE") {
             // Environment variable in format "widthxheight"
             let mut split = size.split('x');
@@ -195,8 +195,8 @@ impl Mutes {
         else {
             // Get the terminal size from the terminal
             let (w, h) = termion::terminal_size().unwrap();
-            width = w;
-            height = h;
+            width = w as i32;
+            height = h as i32;
         }
 
         // Initialize the buffers
@@ -243,25 +243,26 @@ impl Mutes {
             }
 
             // Draw the snow particle in the buffer
-            let x = p.x.round() as u16;
-            let y = p.y.round() as u16;
+            let x = p.x.round() as i32;
+            let y = p.y.round() as i32;
             if x < self.w && y < self.h {
                 self.buf[y as usize][x as usize] = Some(Pixel { color: p.color, char: '*' });
             }
         }
     }
 
-    fn print_ascii(&mut self, art: &AsciiArt, x: u16, y: u16, color: &'static str) {
+    fn print_ascii(&mut self, art: &AsciiArt, x: i32, y: i32, color: &'static str) {
         // Loop through all lines in the ascii art
         for (i, line) in art.art.lines().enumerate() {
             let first_non_space = line.chars().position(|c| c != ' ').unwrap_or(0);
+            if (x + first_non_space as i32) < 0 { continue; }
             // Loop through all characters in the line
             for (j, c) in line.chars().enumerate() {
                 if j < first_non_space { continue; }
                 // Draw the character in the buffer
-                let x = x + j as u16;
-                let y = y + i as u16;
-                if x < self.w && y < self.h {
+                let x = x + j as i32;
+                let y = y + i as i32;
+                if 0 < x && x < self.w as i32 && 0 < y && y < self.h as i32 {
                     self.buf[y as usize][x as usize] = Some(Pixel { color, char: c });
                 }
             }
@@ -434,7 +435,10 @@ async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
         {
             let mut mt = mt.lock().await;
             let mut move_x = |amount: i32| {
-                mt.x = (mt.x as i32 + amount).max(0).min((mt.w - 1) as i32) as u16;
+                mt.x = (mt.x as i32 + amount).max(0).min((mt.w - cn.asc_cat.w) as i32) as u16;
+                if mt.state == State::Welcome {
+                    mt.state = State::Exploring;
+                }
             };
 
             // Switch on the key
@@ -453,7 +457,7 @@ async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
         }
 
         // Sleep for 1/100th of a second
-        tokio::time::sleep(Duration::from_millis(10)).await;
+        tokio::time::sleep(Duration::from_millis(1)).await;
     }
 
     Ok(())
