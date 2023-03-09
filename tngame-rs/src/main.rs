@@ -467,7 +467,7 @@ async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
         {
             let mut mt = mt.lock().await;
             let mut move_x = |amount: i32| {
-                mt.x = (mt.x + amount).max(0).min((mt.w - cn.asc_cat.w));
+                mt.x = (mt.x + amount).max(0);
                 if mt.state == State::Welcome {
                     mt.state = State::Exploring;
                 }
