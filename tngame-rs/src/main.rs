@@ -261,6 +261,13 @@ impl Mutes {
     }
 
     fn print_ascii(&mut self, art: &AsciiArt, x: i32, y: i32, color: &'static str) {
+        let x = x - self.get_scroll();
+
+        // If the ascii art is out of bounds, don't draw it
+        if (x + art.w as i32) < 0 || x > self.w || (y + art.h as i32) < 0 || y > self.h {
+            return;
+        }
+
         // Loop through all lines in the ascii art
         for (i, line) in art.art.lines().enumerate() {
             let first_non_space = line.chars().position(|c| c != ' ').unwrap_or(0);
