@@ -111,8 +111,6 @@ struct Mutes {
     x: u16,
 
     buf: Vec<Vec<Option<Pixel>>>,
-    fb_char: Vec<Vec<char>>,
-    fb_color: Vec<Vec<Option<&'static str>>>,
 
     last_update: Instant,
 
@@ -179,8 +177,6 @@ impl Mutes {
 
         // Initialize the buffers
         let buf = vec![vec![None; width as usize]; height as usize];
-        let fb_char = vec![vec![' '; width as usize]; height as usize];
-        let fb_color = vec![vec![None; width as usize]; height as usize];
 
         // Place cat x in the middle of the screen
         let x = (width - consts.asc_cat.w) / 2;
@@ -191,7 +187,7 @@ impl Mutes {
         Self {
             w: width,
             h: height, x,
-            buf, fb_char, fb_color,
+            buf,
             last_update: Instant::now(),
             snow,
             should_exit: false,
@@ -263,64 +259,37 @@ impl Mutes {
             };
 
         // No optimization method: clear the screen
-        // buf_str.push_str(&CLEAR);
+        buf_str.push_str(&CLEAR);
 
         // Loop through all pixels in the buffer
         for y in 0..self.h as usize {
             for x in 0..self.w as usize {
                 // Get the pixel
                 let ppr = &mut self.buf[y][x];
-                let fb_ch = &mut self.fb_char[y][x];
-                let fb_cl = &mut self.fb_color[y][x];
 
                 // If the current pixel isn't empty
                 if let Some(p) = ppr {
-                    // If color changed and isn't the same as last color, update the color prefix
-                    if fb_cl.is_none() || p.color != fb_cl.unwrap() {
-                        ensure_cursor(x, y, 1, &mut buf_str);
+                    if p.color != last_color {
                         // Set the color
+                        ensure_cursor(x, y, 0, &mut buf_str);
                         buf_str.push_str(p.color);
-                        buf_str.push(p.char);
                         last_color = p.color;
-                        *fb_cl = Some(p.color);
-                        *fb_ch = p.char;
                     }
 
-                    // If the char changed, update the char
-                    if p.char != *fb_ch {
+                    if p.char != ' ' {
+                        // Draw the pixel
                         ensure_cursor(x, y, 1, &mut buf_str);
-                        // Set the char
                         buf_str.push(p.char);
-                        *fb_ch = p.char;
                     }
-
-                    // No optimization method:
-                    // ensure_cursor(x, y, 1, &mut buf_str);
-                    // // Set the color
-                    // buf_str.push_str(p.color);
-                    // buf_str.push(p.char);
-                    // last_color = p.color;
-                    // *fb_cl = Some(p.color);
-                    // *fb_ch = p.char;
 
                     // Clear the pixel
                     *ppr = None;
-                }
-                // If the pixel is empty but the pixel on the frame buffer wasn't, clear the pixel
-                else if *fb_ch != ' ' {
-                    ensure_cursor(x, y, 1, &mut buf_str);
-                    // Clear the pixel
-                    buf_str.push(' ');
-                    *fb_ch = ' ';
                 }
             }
         }
 
         // Reset the color
         buf_str.push_str(RESET);
-
-        // Flush the buffer
-        buf_str.push_str(&Goto(1, self.h as u16 + 1).to_string());
 
         Ok(buf_str)
     }
@@ -342,11 +311,13 @@ fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
                    "\x1b[38;2;255;231;151m");
 
     // Draw the cat
-    mt.print_ascii(&cn.asc_cat, mt.x, mt.h - cn.asc_cat.h, "\x1b[38;2;255;231;151m");
+    mt.print_ascii(&cn.asc_cat, mt.x, mt.h - cn.asc_cat.h,
+                   "\x1b[38;2;255;231;151m");
 
     // Draw chat bubble
     let bubble = gen_bubble_ascii("I wish I could\nlive on that tree.");
-    mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, "\x1b[38;2;255;231;151m");
+    mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h,
+                   "\x1b[38;2;255;231;151m");
 }
 
 
@@ -429,7 +400,7 @@ async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
         }
 
         // Sleep for 1/100th of a second
-        tokio::time::sleep(Duration::from_millis(30)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
     }
 
     Ok(())
