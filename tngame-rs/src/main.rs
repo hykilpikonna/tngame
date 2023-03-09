@@ -434,8 +434,9 @@ fn run() -> Result<()> {
 
     // Set terminal to raw mode
     let mut out = std::io::stdout();
-    if env::var("TN_TERM_SIZE").is_err() {
-        std::io::stdout().into_raw_mode().unwrap();
+    let raw = std::io::stdout().into_raw_mode();
+    if raw.is_ok() {
+        print!("Successfully set terminal to raw mode");
     }
 
     // Clear the screen
@@ -443,13 +444,13 @@ fn run() -> Result<()> {
     out.write(HIDE_CURSOR.as_ref())?;
     out.flush()?;
 
+
     // Start update_loop and pull_input concurrently and wait for them to finish
     let rt = tokio::runtime::Runtime::new().unwrap();
     rt.block_on(async {
         let update_loop = start_update_loop( mt.clone(), cn);
         let pull_input = pull_input(mt.clone(), cn);
         tokio::try_join!(update_loop, pull_input)?;
-        // tokio::try_join!(pull_input)?;
         Ok::<(), Error>(())
     })?;
 
