@@ -1,13 +1,19 @@
 #![feature(let_chains)]
 
 use std::{mem, thread};
+use std::io::{Read, stdin, stdout, Stdout, Write};
+use std::ops::DerefMut;
 use std::string::ToString;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use anyhow::{Error, Result};
 use rand::Rng;
 use termion::color::{Fg, Rgb};
 use termion::cursor::Goto;
+use termion::event::Key;
+use termion::input::TermRead;
+use termion::raw::{IntoRawMode, RawTerminal};
 use crate::cowsay::gen_bubble_ascii;
 
 mod cowsay;
@@ -323,43 +329,108 @@ fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
     mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, "\x1b[38;2;255;231;151m");
 }
 
-fn start_loop(mt: &mut Mutes, cn: &Consts) {
-    // Clear the screen
-    print!("{}", termion::clear::All);
-    print!("{}", termion::cursor::Hide);
+
+async fn start_update_loop(stdout: &mut RawTerminal<Stdout>, mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
 
     // Start the loop
     loop {
         // Get the current time
         let now = Instant::now();
 
-        // Calculate the delta time
-        let dt = (now - mt.last_update).as_secs_f32();
-        mt.last_update = now;
-        let start = Instant::now();
+        let mut txt: String;
+        {
+            let mut mt = mt.lock().unwrap();
 
-        // Update the snow
-        mt.update_snow(dt);
-        draw_ascii_frame(mt, cn);
+            // Calculate the delta time
+            let dt = (now - mt.last_update).as_secs_f32();
 
-        // Draw the buffer, time it, and print it
-        let txt = mt.draw_buf().unwrap();
+            // Update scenes
+            mt.last_update = now;
+            mt.update_snow(dt);
+            draw_ascii_frame(mt.deref_mut(), cn);
+
+            // Draw the buffer, time it, and print it
+            txt = mt.draw_buf().unwrap();
+        }
+
         let end = Instant::now();
 
-        let draw_time = (end - start).as_secs_f32();
-        print!("\rDraw time: {:.2}ms", draw_time * 1000.0);
-        print!("{}", txt);
+        let draw_time = (end - now).as_secs_f32();
+        txt.push_str(&*format!("\rDraw time: {:.2}ms", draw_time * 1000.0));
+        write!(stdout, "{}", txt)?;
 
-        // Sleep for 1/20th of a second
-        thread::sleep(Duration::from_millis(1000 / 20));
+        // Use tokio to sleep for 1/20th of a second
+        tokio::time::sleep(Duration::from_millis(1000 / 20)).await;
     }
+}
+
+async fn pull_input(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
+    // Read keyboard input in a loop
+    let stdin = stdin();
+    let mut stdin = stdin.lock();
+    let mut buf = [0; 3];
+    loop {
+        // Read a byte from stdin
+        let n = stdin.read(&mut buf).unwrap();
+        if n == 0 { break; }
+
+        let str = String::from_utf8_lossy(&buf[..n]).to_string();
+
+        // Print bytes for debug
+        for i in 0..n {
+            for e in std::ascii::escape_default(buf[i]) {
+                print!("{}", e as char);
+            }
+        }
+        // print!("\r\n");
+
+        let move_x = |amount: i32| {
+            let mut mt = mt.lock().unwrap();
+            mt.x = (mt.x as i32 + amount).max(0).min((mt.w - 1) as i32) as u16;
+        };
+
+        // Switch on the key
+        match str.as_str() {
+            "q" => break,
+            "a" => move_x(-1),
+            "d" => move_x(1),
+            _ => (),
+        }
+
+        // Sleep for 1/100th of a second
+        tokio::time::sleep(Duration::from_millis(30)).await;
+    }
+
+    Ok(())
 }
 
 fn main() {
     pretty_env_logger::init();
 
-    let cn = Consts::new();
-    let mut mt = Mutes::new(&cn);
+    let cn: &Consts = Box::leak(Box::new(Consts::new()));
+    let mut mt = Arc::new(Mutex::new(Mutes::new(&cn)));
 
-    start_loop(&mut mt, &cn);
+    // Set terminal to raw mode
+    let mut stdout = stdout().into_raw_mode().unwrap();
+
+    // Clear the screen
+    write!(stdout, "{}", termion::clear::All).unwrap();
+    write!(stdout, "{}", termion::cursor::Hide).unwrap();
+    stdout.flush().unwrap();
+
+    // Start update_loop and pull_input concurrently and wait for them to finish
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    rt.block_on(async {
+        let update_loop = start_update_loop(&mut stdout, mt.clone(), cn);
+        let pull_input = pull_input(mt.clone(), cn);
+        tokio::try_join!(update_loop, pull_input)?;
+        // tokio::try_join!(pull_input)?;
+        Ok::<(), Error>(())
+    }).unwrap();
+
+    // Finish execution, set terminal back to normal
+    stdout.suspend_raw_mode().unwrap();
+    print!("{}", termion::cursor::Show);
+    print!("{}", termion::clear::All);
+    stdout.flush().unwrap();
 }
