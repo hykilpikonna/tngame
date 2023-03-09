@@ -312,9 +312,6 @@ impl Mutes {
 }
 
 fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
-    // Draw the cat
-    mt.print_ascii(&cn.asc_cat, mt.x, mt.h - cn.asc_cat.h, "\x1b[38;2;255;231;151m");
-
     // Draw the tree
     mt.print_ascii(&cn.asc_tree, (mt.w - 2 * cn.asc_tree.w) / 4, mt.h - cn.asc_tree.h,
                    "\x1b[38;2;204;255;88m");
@@ -328,6 +325,9 @@ fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
     // Draw title at the center of the screen
     mt.print_ascii(&cn.asc_title, (mt.w - cn.asc_title.w) / 2, (mt.h - cn.asc_title.h) / 2,
                    "\x1b[38;2;255;231;151m");
+
+    // Draw the cat
+    mt.print_ascii(&cn.asc_cat, mt.x, mt.h - cn.asc_cat.h, "\x1b[38;2;255;231;151m");
 
     // Draw chat bubble
     let bubble = gen_bubble_ascii("I wish I could\nlive on that tree.");
