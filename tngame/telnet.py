@@ -8,10 +8,11 @@ import numba
 import numpy as np
 import telnetlib3
 from hyfetch.color_util import RGB
+from hypy_utils.logging_utils import setup_logger
 from telnetlib3 import TelnetReaderUnicode, TelnetWriterUnicode
 
 from .cowsay import generate_bubble
-from .utils import setup_logger, get_ascii_dimensions
+from .utils import get_ascii_dimensions
 
 DEBUG = bool(os.environ.get("DEBUG", False))
 log = setup_logger(DEBUG)

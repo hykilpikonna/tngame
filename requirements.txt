@@ -1,5 +1,6 @@
 telnetlib3
 hyfetch
+hypy_utils>=1.0.18
 rich
 watchdog
 numpy

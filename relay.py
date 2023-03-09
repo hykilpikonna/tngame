@@ -2,10 +2,10 @@ import asyncio
 
 import telnetlib3
 from telnetlib3 import TelnetReaderUnicode, TelnetWriterUnicode
+from hypy_utils.logging_utils import setup_logger
 
-from tngame.utils import setup_logger
 
-log = setup_logger(True)
+log = setup_logger()
 
 
 async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
