@@ -376,31 +376,27 @@ fn draw_ascii_frame(mt: &mut Mutes, cn: &Consts) {
     // Draw the cat
     mt.print_ascii(&cn.asc_cat, mt.x, mt.h - cn.asc_cat.h, COLOR_CAT);
 
-    if mt.state == State::Welcome {
-        // Draw "Welcome to my snowy world" chat bubble
-        let bubble = gen_bubble_ascii("Welcome to my\nsnowy world!");
+    let chat = |msg: &str, mt: &mut Mutes| {
+        // Draw the chat bubble
+        let bubble = gen_bubble_ascii(msg);
         mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, COLOR_CAT);
-    }
+    };
+
+    if mt.state == State::Welcome { chat("Welcome to my\nsnowy world!", mt); }
     else {
         // Check position, if the cat is near the tree...
         if mt.x > tree_1_start && mt.x < tree_1_start + cn.asc_tree.w {
-            // Draw the chat bubble
-            let bubble = gen_bubble_ascii("I wish I could\nlive on that tree.");
-            mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, COLOR_CAT);
+            chat("I wish I could\nlive on that tree.", mt);
         }
 
         // Else: if the cat is near the house...
         else if mt.x > house_start - cn.asc_cat.w && mt.x < house_start + cn.asc_house.w {
-            // Draw the chat bubble
-            let bubble = gen_bubble_ascii("I wonder what\nmy friends are doing.");
-            mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, COLOR_CAT);
+            chat("I wonder what\nmy friends are doing.", mt);
         }
 
         // Else: If the cat is at the edge...
         else if mt.x == 0 {
-            // Draw the chat bubble
-            let bubble = gen_bubble_ascii("The cliff, it looks so steep.\nI wish I can fly");
-            mt.print_ascii(&bubble, mt.x + 5, mt.h - cn.asc_cat.h - bubble.h, COLOR_CAT);
+            chat("The cliff looks steep.\nBut I can't fly...", mt);
         }
     }
 }
