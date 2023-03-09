@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 
 import telnetlib3
@@ -24,7 +25,7 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
     # Run tngame-rs
     h, w = await get_size()
     proc = await asyncio.create_subprocess_exec(
-        './tngame-rs/target/release/tngame-rs',
+        args.bin,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         env={'TN_TERM_SIZE': f'{w}x{h}'}
@@ -89,10 +90,16 @@ async def shell(reader: TelnetReaderUnicode, writer: TelnetWriterUnicode):
 
 
 if __name__ == '__main__':
+    # Configure port and tngame-rs binary path with args
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=2323)
+    parser.add_argument('--bin', type=str, default='./tngame-rs/target/release/tngame-rs')
+    args = parser.parse_args()
+
     # Create a new event loop, start the server and wait for it to close
-    print("Starting server on port 2323.")
+    print(f"Starting server on port {args.port}.")
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    coro = telnetlib3.create_server(port=2323, shell=shell)
+    coro = telnetlib3.create_server(port=args.port, shell=shell)
     server = loop.run_until_complete(coro)
     loop.run_until_complete(server.wait_closed())
