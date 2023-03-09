@@ -226,6 +226,8 @@ impl Mutes {
 
     /// Update snow particles
     fn update_snow(&mut self, dt: f32) {
+        let scroll = self.get_scroll();
+
         // Loop through all snow particles
         for p in &mut self.snow {
             // Update the snow particle position
@@ -251,7 +253,7 @@ impl Mutes {
             let x = p.x.round() as i32;
             let y = p.y.round() as i32;
             if x < self.w && y < self.h {
-                self.buf[y as usize][x as usize] = Some(Pixel { color: p.color, char: '*' });
+                self.buf[y as usize][(x + self.w - scroll / 2).rem_euclid(self.w) as usize] = Some(Pixel { color: p.color, char: '*' });
             }
         }
     }
