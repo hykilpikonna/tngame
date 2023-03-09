@@ -111,7 +111,8 @@ struct Mutes {
     x: u16,
 
     buf: Vec<Vec<Option<Pixel>>>,
-    last_buf: Vec<Vec<Option<Pixel>>>,
+    fb_char: Vec<Vec<char>>,
+    fb_color: Vec<Vec<Option<&'static str>>>,
 
     last_update: Instant,
 
@@ -178,7 +179,8 @@ impl Mutes {
 
         // Initialize the buffers
         let buf = vec![vec![None; width as usize]; height as usize];
-        let last_buf = buf.clone();
+        let fb_char = vec![vec![' '; width as usize]; height as usize];
+        let fb_color = vec![vec![None; width as usize]; height as usize];
 
         // Place cat x in the middle of the screen
         let x = (width - consts.asc_cat.w) / 2;
@@ -189,7 +191,7 @@ impl Mutes {
         Self {
             w: width,
             h: height, x,
-            buf, last_buf,
+            buf, fb_char, fb_color,
             last_update: Instant::now(),
             snow,
             should_exit: false,
@@ -253,53 +255,66 @@ impl Mutes {
 
         // Keep the current cursor
         let mut cursor = (0, 0);
-        let mut ensure_cursor = |x: u16, y: u16, a: u16, buf_str: &mut String|
+        let mut ensure_cursor = |x: usize, y: usize, a: usize, buf_str: &mut String|
             if cursor != (x, y) {
                 // Go to the pixel position
-                buf_str.push_str(&Goto(x + 1, y + 1).to_string());
+                buf_str.push_str(&Goto(x as u16 + 1, y as u16 + 1).to_string());
                 cursor = (x + a, y);
             };
 
+        // No optimization method: clear the screen
+        // buf_str.push_str(&CLEAR);
+
         // Loop through all pixels in the buffer
-        for y in 0..self.h {
-            for x in 0..self.w {
+        for y in 0..self.h as usize {
+            for x in 0..self.w as usize {
                 // Get the pixel
-                let p = &self.buf[y as usize][x as usize];
+                let ppr = &mut self.buf[y][x];
+                let fb_ch = &mut self.fb_char[y][x];
+                let fb_cl = &mut self.fb_color[y][x];
 
-                // Get the last pixel
-                let last_p = &self.last_buf[y as usize][x as usize];
-
-                // If color changed and isn't the same as last color, update the color prefix
-                if let Some(p) = p && (last_p.is_none() || p.color != last_p.as_ref().unwrap().color) && p.color != last_color {
-                    ensure_cursor(x, y, 0, &mut buf_str);
-                    // Set the color
-                    buf_str.push_str(p.color);
-                    last_color = p.color;
-                }
-
-                // If the char changed, update the char
-                if let Some(p) = p && (last_p.is_none() || p.char != last_p.as_ref().unwrap().char) {
-                    ensure_cursor(x, y, 1, &mut buf_str);
-                    // Set the char
-                    buf_str.push(p.char);
-                }
-
-                // If the pixel is empty but the last pixel wasn't, clear the pixel
-                if last_p.is_some() {
-                    if p.is_none() {
+                // If the current pixel isn't empty
+                if let Some(p) = ppr {
+                    // If color changed and isn't the same as last color, update the color prefix
+                    if fb_cl.is_none() || p.color != fb_cl.unwrap() {
                         ensure_cursor(x, y, 1, &mut buf_str);
-                        // Clear the pixel
-                        buf_str.push(' ');
+                        // Set the color
+                        buf_str.push_str(p.color);
+                        buf_str.push(p.char);
+                        last_color = p.color;
+                        *fb_cl = Some(p.color);
+                        *fb_ch = p.char;
                     }
 
-                    // Clear the last pixel
-                    self.last_buf[y as usize][x as usize] = None;
+                    // If the char changed, update the char
+                    if p.char != *fb_ch {
+                        ensure_cursor(x, y, 1, &mut buf_str);
+                        // Set the char
+                        buf_str.push(p.char);
+                        *fb_ch = p.char;
+                    }
+
+                    // No optimization method:
+                    // ensure_cursor(x, y, 1, &mut buf_str);
+                    // // Set the color
+                    // buf_str.push_str(p.color);
+                    // buf_str.push(p.char);
+                    // last_color = p.color;
+                    // *fb_cl = Some(p.color);
+                    // *fb_ch = p.char;
+
+                    // Clear the pixel
+                    *ppr = None;
+                }
+                // If the pixel is empty but the pixel on the frame buffer wasn't, clear the pixel
+                else if *fb_ch != ' ' {
+                    ensure_cursor(x, y, 1, &mut buf_str);
+                    // Clear the pixel
+                    buf_str.push(' ');
+                    *fb_ch = ' ';
                 }
             }
         }
-
-        // Since last_buf is cleared, we can swap it with buf
-        mem::swap(&mut self.buf, &mut self.last_buf);
 
         // Reset the color
         buf_str.push_str(RESET);
