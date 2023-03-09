@@ -251,12 +251,6 @@ impl Mutes {
 
         // Keep the current cursor
         let mut cursor = (0, 0);
-        let mut ensure_cursor = |x: usize, y: usize, a: usize, buf_str: &mut String|
-            if cursor != (x, y) {
-                // Go to the pixel position
-                buf_str.push_str(&Goto(x as u16 + 1, y as u16 + 1).to_string());
-                cursor = (x + a, y);
-            };
 
         // No optimization method: clear the screen
         buf_str.push_str(&CLEAR);
@@ -269,18 +263,27 @@ impl Mutes {
 
                 // If the current pixel isn't empty
                 if let Some(p) = ppr {
+                    if cursor != (x, y) {
+                        if cursor.1 == y && x - cursor.0 < 8 {
+                            // If the cursor is on the same line and with x distance less than 8, use spaces
+                            for _ in 0..(x - cursor.0) {
+                                buf_str.push(' ');
+                            }
+                        } else {
+                            // Jump to the pixel position
+                            buf_str.push_str(&Goto(x as u16 + 1, y as u16 + 1).to_string());
+                        }
+                    };
+                    cursor = (x + 1, y);
+
                     if p.color != last_color {
                         // Set the color
-                        ensure_cursor(x, y, 0, &mut buf_str);
                         buf_str.push_str(p.color);
                         last_color = p.color;
                     }
 
-                    if p.char != ' ' {
-                        // Draw the pixel
-                        ensure_cursor(x, y, 1, &mut buf_str);
-                        buf_str.push(p.char);
-                    }
+                    // Draw the pixel
+                    buf_str.push(p.char);
 
                     // Clear the pixel
                     *ppr = None;
