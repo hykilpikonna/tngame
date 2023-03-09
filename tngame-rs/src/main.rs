@@ -262,7 +262,7 @@ impl Mutes {
                 // Draw the character in the buffer
                 let x = x + j as i32;
                 let y = y + i as i32;
-                if 0 < x && x < self.w as i32 && 0 < y && y < self.h as i32 {
+                if 0 <= x && x < self.w as i32 && 0 <= y && y < self.h as i32 {
                     self.buf[y as usize][x as usize] = Some(Pixel { color, char: c });
                 }
             }
