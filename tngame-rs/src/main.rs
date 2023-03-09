@@ -400,7 +400,9 @@ async fn start_update_loop(mt: Arc<Mutex<Mutes>>, cn: &Consts) -> Result<()> {
         let end = Instant::now();
 
         let draw_time = (end - now).as_secs_f32();
-        txt.push_str(&*format!("\rDraw time: {:.2}ms", draw_time * 1000.0));
+        // Print draw time at 1, 1
+        txt.push_str(&Goto(1, 1).to_string());
+        txt.push_str(&*format!("\r{:.2}ms", draw_time * 1000.0));
 
         // Frame end with 3 Null bytes
         txt.push_str("\x00\x00\x00");
