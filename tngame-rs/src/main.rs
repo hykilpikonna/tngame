@@ -242,8 +242,10 @@ impl Mutes {
     fn print_ascii(&mut self, art: &AsciiArt, x: u16, y: u16, color: &'static str) {
         // Loop through all lines in the ascii art
         for (i, line) in art.art.lines().enumerate() {
+            let first_non_space = line.chars().position(|c| c != ' ').unwrap_or(0);
             // Loop through all characters in the line
             for (j, c) in line.chars().enumerate() {
+                if j < first_non_space { continue; }
                 // Draw the character in the buffer
                 let x = x + j as u16;
                 let y = y + i as u16;
