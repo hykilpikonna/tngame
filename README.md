@@ -1,4 +1,4 @@
-## A Telnet ASCII Animation Game [WIP]
+## An Interactive Telnet ASCII Animation [WIP]
 
 TLDR: `telnet hydev.org`
 
